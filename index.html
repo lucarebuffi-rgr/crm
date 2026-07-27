@@ -133,6 +133,61 @@
   .bulk-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
   .bulk-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8a97a8; cursor: pointer; }
   .bulk-bar input[type="checkbox"] { width: 16px; height: 16px; accent-color: #d4a843; cursor: pointer; }
+
+  .agenda-toggle { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .agenda-btn {
+    background: #142640; border: 1px solid #22385a; color: #e8ecf1; border-radius: 8px;
+    padding: 9px 14px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+  }
+  .agenda-btn.active { background: #d4a843; color: #0d1b2e; border-color: #d4a843; }
+  .agenda-btn .count { font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+  .agenda-back { background: none; border: none; color: #d4a843; font-size: 13px; font-weight: 600; margin-bottom: 12px; padding: 0; }
+
+  .agenda-item {
+    background: #142640; border: 1px solid #22385a; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer;
+  }
+  .agenda-time {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #d4a843; font-size: 14px;
+    min-width: 78px; flex-shrink: 0;
+  }
+  .agenda-body { flex: 1; min-width: 0; }
+  .agenda-task-name { font-weight: 700; font-size: 14px; }
+  .agenda-lead-name { font-size: 12px; color: #8a97a8; margin-top: 2px; }
+  .agenda-notes { font-size: 12px; color: #8a97a8; margin-top: 4px; }
+  .agenda-done-cb { width: 18px; height: 18px; accent-color: #4caf82; cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+  .agenda-item.is-done .agenda-task-name, .agenda-item.is-done .agenda-notes { text-decoration: line-through; opacity: 0.5; }
+
+  .task-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .task-item {
+    border: 1px solid #22385a; border-radius: 8px; padding: 10px 12px; font-size: 13px;
+    display: flex; align-items: flex-start; gap: 10px; background: #142640;
+  }
+  .task-item.is-done { opacity: 0.5; }
+  .task-item.is-done .task-name { text-decoration: line-through; }
+  .task-checkbox { width: 17px; height: 17px; accent-color: #4caf82; cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+  .task-item-body { flex: 1; min-width: 0; }
+  .task-name { font-weight: 700; }
+  .task-when { font-family: 'JetBrains Mono', monospace; color: #d4a843; font-size: 12px; margin-top: 2px; }
+  .task-notes-text { color: #8a97a8; font-size: 12px; margin-top: 3px; }
+  .task-delete-btn { background: none; border: none; color: #ff8b7e; font-size: 16px; padding: 2px 4px; flex-shrink: 0; }
+
+  .task-form { margin-top: 12px; border-top: 1px solid #22385a; padding-top: 12px; }
+  .task-form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .task-form-row input[type="text"] { flex: 1 1 160px; }
+  .task-form-row input[type="date"], .task-form-row input[type="time"] { flex: 1 1 130px; }
+  .task-form input {
+    padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036;
+    color: #e8ecf1; font-size: 13px;
+  }
+  .task-form textarea {
+    width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036;
+    color: #e8ecf1; font-size: 13px; resize: vertical; margin-bottom: 8px;
+  }
+  .add-task-btn {
+    background: none; border: 1px solid #d4a843; color: #d4a843; border-radius: 6px; padding: 7px 12px;
+    font-size: 12px; font-weight: 700;
+  }
   .btn-danger {
     background: #3a1e1e; border: 1px solid #d9534f; color: #ff8b7e; border-radius: 8px; padding: 8px 14px;
     font-size: 13px; font-weight: 700;
@@ -170,6 +225,14 @@
   <div class="content">
     <div class="stats-grid" id="stats-grid"></div>
 
+    <div class="agenda-toggle">
+      <button class="agenda-btn" id="today-tasks-btn">📅 Today's Tasks (<span class="count" id="today-count">0</span>)</button>
+      <button class="agenda-btn" id="tomorrow-tasks-btn">📅 Tomorrow's Tasks (<span class="count" id="tomorrow-count">0</span>)</button>
+    </div>
+
+    <button class="agenda-back" id="agenda-back-btn" style="display:none;">← Back to leads</button>
+
+    <div id="leads-controls">
     <div class="controls">
       <div class="search-wrap">
         <span>🔍</span>
@@ -191,6 +254,7 @@
     <div class="bulk-bar">
       <label><input type="checkbox" id="select-all-checkbox" /> Select all</label>
       <button class="btn-danger" id="delete-selected-btn" disabled>Delete Selected (0)</button>
+    </div>
     </div>
 
     <div id="lead-list"></div>
@@ -271,6 +335,10 @@ function shortDate(iso) {
 function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function makeId() {
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+}
 function showToast(msg, kind) {
   const el = document.createElement('div');
   el.className = 'toast' + (kind === 'error' ? ' error' : '');
@@ -286,6 +354,8 @@ let search = '';
 let statusFilter = 'active';
 let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
+let taskDrafts = {}; // per-lead in-progress new-task form state
+let viewMode = 'leads'; // 'leads' | 'today' | 'tomorrow'
 let selectedIds = new Set();
 
 /* ---------------- Firestore live sync ---------------- */
@@ -378,6 +448,7 @@ function handleFile(file) {
             lao: '',
             mao: '',
             fireLead: false,
+            tasks: [],
           });
         });
 
@@ -392,6 +463,74 @@ function handleFile(file) {
     },
     error: () => { showToast('Could not parse that CSV file.', 'error'); setUploadBusy(false); }
   });
+}
+
+function localDateStr(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatTaskDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatTaskTime(timeStr) {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+function addTask(leadId) {
+  const draft = taskDrafts[leadId] || {};
+  const name = (draft.name || '').trim();
+  if (!name) { showToast('Give the task a name first.', 'error'); return; }
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  const newTask = {
+    id: makeId(),
+    name,
+    date: draft.date || localDateStr(0),
+    time: draft.time || '',
+    notes: (draft.notes || '').trim(),
+    done: false,
+    createdAt: new Date().toISOString(),
+  };
+  const nextTasks = [...(lead.tasks || []), newTask];
+  leadsRef.doc(leadId).update({ tasks: nextTasks }).catch(() => showToast('Could not save that task.', 'error'));
+  taskDrafts[leadId] = {};
+}
+
+function deleteTask(leadId, taskId) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  const nextTasks = (lead.tasks || []).filter(t => t.id !== taskId);
+  leadsRef.doc(leadId).update({ tasks: nextTasks }).catch(() => showToast('Could not delete that task.', 'error'));
+}
+
+function toggleTaskDone(leadId, taskId) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  const nextTasks = (lead.tasks || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t);
+  leadsRef.doc(leadId).update({ tasks: nextTasks }).catch(() => showToast('Could not update that task.', 'error'));
+}
+
+function jumpToLead(leadId) {
+  viewMode = 'leads';
+  expandedId = leadId;
+  statusFilter = 'all';
+  search = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('status-filter').value = 'all';
+  render();
 }
 
 /* ---------------- Lead updates ---------------- */
@@ -480,10 +619,84 @@ function getFiltered() {
 
 /* ---------------- Rendering ---------------- */
 function render() {
-  renderStats();
-  renderList();
-  renderBulkBar();
+  renderAgendaToggle();
+  if (viewMode === 'leads') {
+    document.getElementById('leads-controls').style.display = '';
+    document.getElementById('agenda-back-btn').style.display = 'none';
+    renderStats();
+    renderList();
+    renderBulkBar();
+  } else {
+    document.getElementById('leads-controls').style.display = 'none';
+    document.getElementById('agenda-back-btn').style.display = '';
+    renderStats();
+    renderAgenda();
+  }
 }
+
+function getAllTasksFor(dateStr) {
+  const items = [];
+  leads.forEach(lead => {
+    (lead.tasks || []).forEach(task => {
+      if (task.date === dateStr) items.push({ lead, task });
+    });
+  });
+  items.sort((a, b) => (a.task.time || '99:99').localeCompare(b.task.time || '99:99'));
+  return items;
+}
+
+function renderAgendaToggle() {
+  const todayStr = localDateStr(0);
+  const tomorrowStr = localDateStr(1);
+  document.getElementById('today-count').textContent = getAllTasksFor(todayStr).filter(i => !i.task.done).length;
+  document.getElementById('tomorrow-count').textContent = getAllTasksFor(tomorrowStr).filter(i => !i.task.done).length;
+  document.getElementById('today-tasks-btn').classList.toggle('active', viewMode === 'today');
+  document.getElementById('tomorrow-tasks-btn').classList.toggle('active', viewMode === 'tomorrow');
+}
+
+function renderAgenda() {
+  const container = document.getElementById('lead-list');
+  const dateStr = viewMode === 'today' ? localDateStr(0) : localDateStr(1);
+  const items = getAllTasksFor(dateStr);
+
+  if (items.length === 0) {
+    container.innerHTML = `<div class="empty-state">No tasks scheduled for ${viewMode === 'today' ? 'today' : 'tomorrow'}.</div>`;
+    return;
+  }
+
+  container.innerHTML = items.map(({ lead, task }) => `
+    <div class="agenda-item ${task.done ? 'is-done' : ''}" data-agenda-jump="${lead.id}">
+      <input type="checkbox" class="agenda-done-cb" ${task.done ? 'checked' : ''} data-agenda-done="${lead.id}" data-task-id="${task.id}" />
+      <div class="agenda-body">
+        <div class="agenda-task-name">${task.time ? `<span class="agenda-time">${formatTaskTime(task.time)}</span> ` : ''}${escapeHtml(task.name)}</div>
+        <div class="agenda-lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)} · ${formatPhone(lead.phone)}</div>
+        ${task.notes ? `<div class="agenda-notes">${escapeHtml(task.notes)}</div>` : ''}
+      </div>
+    </div>`).join('');
+
+  container.querySelectorAll('[data-agenda-done]').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', () => {
+      toggleTaskDone(cb.getAttribute('data-agenda-done'), cb.getAttribute('data-task-id'));
+    });
+  });
+  container.querySelectorAll('[data-agenda-jump]').forEach(row => {
+    row.addEventListener('click', () => jumpToLead(row.getAttribute('data-agenda-jump')));
+  });
+}
+
+document.getElementById('today-tasks-btn').addEventListener('click', () => {
+  viewMode = viewMode === 'today' ? 'leads' : 'today';
+  render();
+});
+document.getElementById('tomorrow-tasks-btn').addEventListener('click', () => {
+  viewMode = viewMode === 'tomorrow' ? 'leads' : 'tomorrow';
+  render();
+});
+document.getElementById('agenda-back-btn').addEventListener('click', () => {
+  viewMode = 'leads';
+  render();
+});
 
 function renderBulkBar() {
   const filtered = getFiltered();
@@ -544,6 +757,7 @@ function renderCard(lead) {
   let detail = '';
   if (isOpen) {
     const draft = drafts[lead.id] || { outcome: 'no_answer', text: '' };
+    const taskDraft = taskDrafts[lead.id] || {};
     detail = `
       <div class="lead-detail">
         <div class="status-track">
@@ -590,6 +804,27 @@ function renderCard(lead) {
             </div>
             ${n.text ? `<div class="note-text">${escapeHtml(n.text)}</div>` : ''}
           </div>`).join('')}</div>` : ''}
+
+        <div class="task-form">
+          <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">TASKS</div>
+          ${(lead.tasks && lead.tasks.length) ? `<div class="task-list">${lead.tasks.slice().sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(t => `
+            <div class="task-item ${t.done ? 'is-done' : ''}">
+              <input type="checkbox" class="task-checkbox" ${t.done ? 'checked' : ''} data-task-done="${lead.id}" data-task-id="${t.id}" />
+              <div class="task-item-body">
+                <div class="task-name">${escapeHtml(t.name)}</div>
+                <div class="task-when">${formatTaskDate(t.date)}${t.time ? ` · ${formatTaskTime(t.time)}` : ''}</div>
+                ${t.notes ? `<div class="task-notes-text">${escapeHtml(t.notes)}</div>` : ''}
+              </div>
+              <button class="task-delete-btn" data-task-delete="${lead.id}" data-task-id-del="${t.id}">✕</button>
+            </div>`).join('')}</div>` : ''}
+          <div class="task-form-row" style="margin-top:10px;">
+            <input type="text" placeholder="Task name" value="${escapeHtml(taskDraft.name || '')}" data-task-name-input="${lead.id}" />
+            <input type="date" value="${taskDraft.date || ''}" data-task-date-input="${lead.id}" />
+            <input type="time" value="${taskDraft.time || ''}" data-task-time-input="${lead.id}" />
+          </div>
+          <textarea placeholder="Task notes (optional)" data-task-notes-input="${lead.id}">${escapeHtml(taskDraft.notes || '')}</textarea>
+          <button class="add-task-btn" data-add-task="${lead.id}">+ Add Task</button>
+        </div>
       </div>`;
   }
 
@@ -675,6 +910,49 @@ function attachCardListeners() {
   });
   document.querySelectorAll('[data-delete-lead]').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); deleteLead(btn.getAttribute('data-delete-lead')); });
+  });
+  document.querySelectorAll('[data-task-name-input]').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', () => {
+      const id = inp.getAttribute('data-task-name-input');
+      taskDrafts[id] = { ...(taskDrafts[id]||{}), name: inp.value };
+    });
+  });
+  document.querySelectorAll('[data-task-date-input]').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', () => {
+      const id = inp.getAttribute('data-task-date-input');
+      taskDrafts[id] = { ...(taskDrafts[id]||{}), date: inp.value };
+    });
+  });
+  document.querySelectorAll('[data-task-time-input]').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', () => {
+      const id = inp.getAttribute('data-task-time-input');
+      taskDrafts[id] = { ...(taskDrafts[id]||{}), time: inp.value };
+    });
+  });
+  document.querySelectorAll('[data-task-notes-input]').forEach(ta => {
+    ta.addEventListener('click', e => e.stopPropagation());
+    ta.addEventListener('input', () => {
+      const id = ta.getAttribute('data-task-notes-input');
+      taskDrafts[id] = { ...(taskDrafts[id]||{}), notes: ta.value };
+    });
+  });
+  document.querySelectorAll('[data-add-task]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); addTask(btn.getAttribute('data-add-task')); });
+  });
+  document.querySelectorAll('[data-task-done]').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', () => {
+      toggleTaskDone(cb.getAttribute('data-task-done'), cb.getAttribute('data-task-id'));
+    });
+  });
+  document.querySelectorAll('[data-task-delete]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteTask(btn.getAttribute('data-task-delete'), btn.getAttribute('data-task-id-del'));
+    });
   });
 }
 
