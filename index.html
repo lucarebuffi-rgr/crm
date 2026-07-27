@@ -194,6 +194,35 @@
   }
   .btn-danger:disabled { opacity: 0.35; cursor: default; }
 
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(13,27,46,0.75);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: #142640; border: 1px solid #22385a; border-radius: 14px; width: 100%; max-width: 420px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 18px 20px;
+    border-bottom: 1px solid #22385a;
+  }
+  .modal-header h2 { margin: 0; font-size: 17px; font-weight: 700; }
+  .modal-close-btn { background: none; border: none; color: #8a97a8; font-size: 16px; padding: 4px; }
+  .modal-body { padding: 18px 20px; }
+  .modal-field { margin-bottom: 12px; flex: 1; min-width: 0; }
+  .modal-field label { display: block; font-size: 12px; color: #8a97a8; margin-bottom: 4px; }
+  .modal-field input {
+    width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036;
+    color: #e8ecf1; font-size: 14px;
+  }
+  .modal-field-row { display: flex; gap: 10px; }
+  .modal-error { color: #ff8b7e; font-size: 13px; min-height: 16px; }
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid #22385a;
+  }
+
   .toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     padding: 10px 18px; border-radius: 8px; font-size: 14px; display: flex; align-items: center; gap: 8px;
@@ -214,6 +243,7 @@
       </div>
       <div class="header-actions">
         <span class="sync-note" id="sync-note"></span>
+        <button class="btn-ghost" id="add-lead-btn">+ Add Lead</button>
         <button class="btn-gold" id="upload-btn">
           <span id="upload-icon">⬆</span> <span id="upload-label">Upload Today's List</span>
         </button>
@@ -258,6 +288,33 @@
     </div>
 
     <div id="lead-list"></div>
+  </div>
+</div>
+
+<div id="add-lead-overlay" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>Add a Lead</h2>
+      <button class="modal-close-btn" id="add-lead-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field-row">
+        <div class="modal-field"><label>First Name</label><input type="text" id="new-lead-firstName" /></div>
+        <div class="modal-field"><label>Last Name</label><input type="text" id="new-lead-lastName" /></div>
+      </div>
+      <div class="modal-field"><label>Phone</label><input type="text" id="new-lead-phone" placeholder="(555) 555-5555" /></div>
+      <div class="modal-field"><label>Property Address</label><input type="text" id="new-lead-address" /></div>
+      <div class="modal-field-row">
+        <div class="modal-field"><label>City</label><input type="text" id="new-lead-city" /></div>
+        <div class="modal-field" style="flex:0 0 90px;"><label>State</label><input type="text" id="new-lead-state" maxlength="2" style="text-transform:uppercase;" /></div>
+        <div class="modal-field" style="flex:0 0 110px;"><label>Zip</label><input type="text" id="new-lead-zip" /></div>
+      </div>
+      <div class="modal-error" id="add-lead-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="add-lead-cancel">Cancel</button>
+      <button class="btn-gold" id="add-lead-save">Save Lead</button>
+    </div>
   </div>
 </div>
 
@@ -374,6 +431,69 @@ function startListening() {
 startListening();
 
 /* ---------------- CSV Upload ---------------- */
+/* ---------------- Add single lead ---------------- */
+function openAddLeadModal() {
+  ['firstName','lastName','phone','address','city','state','zip'].forEach(f => {
+    document.getElementById('new-lead-' + f).value = '';
+  });
+  document.getElementById('add-lead-error').textContent = '';
+  document.getElementById('add-lead-overlay').classList.add('open');
+  document.getElementById('new-lead-firstName').focus();
+}
+function closeAddLeadModal() {
+  document.getElementById('add-lead-overlay').classList.remove('open');
+}
+async function saveNewLead() {
+  const get = f => document.getElementById('new-lead-' + f).value.trim();
+  const lead = {
+    firstName: get('firstName'),
+    lastName: get('lastName'),
+    phone: get('phone'),
+    address: get('address'),
+    city: get('city'),
+    state: get('state').toUpperCase(),
+    zip: get('zip'),
+  };
+  const errEl = document.getElementById('add-lead-error');
+  if (!lead.firstName || !lead.phone) {
+    errEl.textContent = 'First name and phone are required.';
+    return;
+  }
+  const key = dedupeKey(lead);
+  if (leads.some(l => dedupeKey(l) === key)) {
+    errEl.textContent = 'A lead with this phone number already exists.';
+    return;
+  }
+  errEl.textContent = '';
+  try {
+    await leadsRef.add({
+      ...lead,
+      status: 'new',
+      callAttempts: 0,
+      lastCalledAt: null,
+      addedAt: new Date().toISOString(),
+      notes: [],
+      leadValue: '',
+      askingPrice: '',
+      lao: '',
+      mao: '',
+      fireLead: false,
+      tasks: [],
+    });
+    closeAddLeadModal();
+    showToast(`Added ${lead.firstName} ${lead.lastName}.`, 'success');
+  } catch (e) {
+    errEl.textContent = 'Could not save this lead — try again.';
+  }
+}
+document.getElementById('add-lead-btn').addEventListener('click', openAddLeadModal);
+document.getElementById('add-lead-close').addEventListener('click', closeAddLeadModal);
+document.getElementById('add-lead-cancel').addEventListener('click', closeAddLeadModal);
+document.getElementById('add-lead-save').addEventListener('click', saveNewLead);
+document.getElementById('add-lead-overlay').addEventListener('click', e => {
+  if (e.target.id === 'add-lead-overlay') closeAddLeadModal();
+});
+
 document.getElementById('upload-btn').addEventListener('click', () => document.getElementById('file-input').click());
 document.getElementById('file-input').addEventListener('change', e => {
   const file = e.target.files[0];
