@@ -285,8 +285,7 @@ const leadsRef = db.collection('leads');
 const STATUSES = [
   { id: 'new',            label: 'New',                 color: '#5b8fd4' },
   { id: 'trying',         label: 'Trying to Reach',      color: '#e0954a' },
-  { id: 'progress',       label: 'In Progress',          color: '#d4a843' },
-  { id: 'callback',       label: 'Callback Scheduled',   color: '#7fb3d9' },
+  { id: 'callback',       label: 'Qualified Leads',      color: '#7fb3d9' },
   { id: 'not_interested', label: 'Not Interested',       color: '#8a97a8' },
   { id: 'dead',           label: 'Dead / Bad Number',    color: '#d9534f' },
   { id: 'deal',           label: 'Deal Closed',          color: '#4caf82' },
@@ -297,7 +296,7 @@ const OUTCOMES = [
   { id: 'no_answer',          label: 'No Answer',            status: 'trying' },
   { id: 'voicemail',          label: 'Left Voicemail',       status: 'trying' },
   { id: 'busy',               label: 'Busy / Call Back',     status: 'trying' },
-  { id: 'talked',             label: 'Talked — Working It',  status: 'progress' },
+  { id: 'talked',             label: 'Talked — Working It',  status: 'callback' },
   { id: 'callback_scheduled', label: 'Scheduled Callback',   status: 'callback' },
   { id: 'not_interested',     label: 'Not Interested',       status: 'not_interested' },
   { id: 'wrong_number',       label: 'Wrong / Bad Number',   status: 'dead' },
