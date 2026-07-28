@@ -841,14 +841,17 @@ function renderStats() {
   const pipelineValue = leads
     .filter(l => l.status === 'under_contract')
     .reduce((sum, l) => sum + parseMoney(l.leadValue), 0);
+  const closedValue = leads
+    .filter(l => l.status === 'deal')
+    .reduce((sum, l) => sum + parseMoney(l.leadValue), 0);
 
   let html = `<button class="stat-card ${statusFilter==='all'?'active':''}" data-filter="all">
       <div class="stat-value" style="color:#e8ecf1">${counts.total}</div>
       <div class="stat-label">Total Leads</div></button>`;
   STATUSES.forEach(s => {
-    const subheader = s.id === 'under_contract'
-      ? `<div class="stat-sub">Pipeline Value: $${pipelineValue.toLocaleString()}</div>`
-      : '';
+    let subheader = '';
+    if (s.id === 'under_contract') subheader = `<div class="stat-sub">$${pipelineValue.toLocaleString()}</div>`;
+    else if (s.id === 'deal') subheader = `<div class="stat-sub">$${closedValue.toLocaleString()}</div>`;
     html += `<button class="stat-card ${statusFilter===s.id?'active':''}" data-filter="${s.id}" style="border-color:${statusFilter===s.id ? s.color : '#22385a'}">
       <div class="stat-value" style="color:${s.color}">${counts[s.id]||0}</div>
       <div class="stat-label">${s.label}</div>${subheader}</button>`;
