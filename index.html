@@ -57,6 +57,7 @@
   .stat-card.active { background: #1b3151; }
   .stat-value { font-size: 20px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
   .stat-label { font-size: 11px; color: #8a97a8; margin-top: 2px; line-height: 1.2; }
+  .stat-sub { font-size: 11px; color: #d4a843; font-weight: 700; margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
 
   .controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .search-wrap { position: relative; flex: 1 1 220px; }
@@ -827,18 +828,30 @@ function renderBulkBar() {
   allCb.checked = filtered.length > 0 && filtered.every(l => selectedIds.has(l.id));
 }
 
+function parseMoney(val) {
+  const n = parseFloat((val || '').toString().replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
 function renderStats() {
   const grid = document.getElementById('stats-grid');
   const counts = { total: leads.length };
   STATUSES.forEach(s => counts[s.id] = leads.filter(l => l.status === s.id).length);
 
+  const pipelineValue = leads
+    .filter(l => l.status === 'under_contract')
+    .reduce((sum, l) => sum + parseMoney(l.leadValue), 0);
+
   let html = `<button class="stat-card ${statusFilter==='all'?'active':''}" data-filter="all">
       <div class="stat-value" style="color:#e8ecf1">${counts.total}</div>
       <div class="stat-label">Total Leads</div></button>`;
   STATUSES.forEach(s => {
+    const subheader = s.id === 'under_contract'
+      ? `<div class="stat-sub">Pipeline Value: $${pipelineValue.toLocaleString()}</div>`
+      : '';
     html += `<button class="stat-card ${statusFilter===s.id?'active':''}" data-filter="${s.id}" style="border-color:${statusFilter===s.id ? s.color : '#22385a'}">
       <div class="stat-value" style="color:${s.color}">${counts[s.id]||0}</div>
-      <div class="stat-label">${s.label}</div></button>`;
+      <div class="stat-label">${s.label}</div>${subheader}</button>`;
   });
   grid.innerHTML = html;
   grid.querySelectorAll('[data-filter]').forEach(btn => {
