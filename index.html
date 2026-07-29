@@ -85,6 +85,10 @@
     font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 20px; background: #e0954a22;
     color: #e0954a; border: 1px solid #e0954a55; white-space: nowrap;
   }
+  .director-badge {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: #8f7ff522;
+    color: #8f7ff5; border: 1px solid #8f7ff555; white-space: nowrap;
+  }
   .lead-main { flex: 1 1 200px; min-width: 0; }
   .lead-name-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .lead-name { font-weight: 700; font-size: 15px; }
@@ -106,7 +110,7 @@
   }
   .fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .fin-field label { display: block; font-size: 11px; color: #8a97a8; margin-bottom: 4px; }
-  .fin-field input {
+  .fin-field input, .fin-field select {
     width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #142640;
     color: #e8ecf1; font-size: 13px;
   }
@@ -274,6 +278,12 @@
         <option value="all">All leads</option>
         <option value="fire">🔥 Fire Leads</option>
       </select>
+      <select id="director-filter">
+        <option value="all">All Directors</option>
+        <option value="unassigned">Unassigned</option>
+        <option value="Luca Rebuffi">Luca Rebuffi</option>
+        <option value="Jalen Albright">Jalen Albright</option>
+      </select>
       <select id="sort-by">
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
@@ -410,6 +420,7 @@ let leads = [];
 let expandedId = null;
 let search = '';
 let statusFilter = 'active';
+let directorFilter = 'all';
 let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
 let taskDrafts = {}; // per-lead in-progress new-task form state
@@ -479,6 +490,7 @@ async function saveNewLead() {
       lao: '',
       mao: '',
       fireLead: false,
+      acquisitionDirector: '',
       tasks: [],
     });
     closeAddLeadModal();
@@ -569,6 +581,7 @@ function handleFile(file) {
             lao: '',
             mao: '',
             fireLead: false,
+            acquisitionDirector: '',
             tasks: [],
           });
         });
@@ -648,9 +661,11 @@ function jumpToLead(leadId) {
   viewMode = 'leads';
   expandedId = leadId;
   statusFilter = 'all';
+  directorFilter = 'all';
   search = '';
   document.getElementById('search-input').value = '';
   document.getElementById('status-filter').value = 'all';
+  document.getElementById('director-filter').value = 'all';
   render();
 }
 
@@ -720,6 +735,11 @@ function getFiltered() {
     list = list.filter(l => l.fireLead);
   } else if (statusFilter !== 'all') {
     list = list.filter(l => l.status === statusFilter);
+  }
+  if (directorFilter === 'unassigned') {
+    list = list.filter(l => !l.acquisitionDirector);
+  } else if (directorFilter !== 'all') {
+    list = list.filter(l => l.acquisitionDirector === directorFilter);
   }
   const q = search.trim().toLowerCase();
   if (q) {
@@ -903,6 +923,15 @@ function renderCard(lead) {
                 : `color:${s.color};`}">${s.label}</div>`).join('')}
         </div>
 
+        <div class="fin-field" style="margin-bottom:14px;">
+          <label>Acquisition Director</label>
+          <select data-director-select="${lead.id}">
+            <option value="" ${!lead.acquisitionDirector ? 'selected' : ''}>Unassigned</option>
+            <option value="Luca Rebuffi" ${lead.acquisitionDirector==='Luca Rebuffi' ? 'selected' : ''}>Luca Rebuffi</option>
+            <option value="Jalen Albright" ${lead.acquisitionDirector==='Jalen Albright' ? 'selected' : ''}>Jalen Albright</option>
+          </select>
+        </div>
+
         <div class="fin-grid">
           <div class="fin-field">
             <label>Lead Value</label>
@@ -974,6 +1003,7 @@ function renderCard(lead) {
             <span class="lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)}</span>
             <span class="status-badge" style="background:${status.color}22;color:${status.color};border-color:${status.color}55">${status.label}</span>
             ${isFire ? `<span class="fire-badge">🔥 FIRE LEAD</span>` : ''}
+            ${lead.acquisitionDirector ? `<span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}
           </div>
           <div class="lead-address">📍 ${escapeHtml(lead.address)}${lead.address ? ', ' : ''}${escapeHtml(lead.city)} ${escapeHtml(lead.state)} ${escapeHtml(lead.zip)}</div>
         </div>
@@ -1019,6 +1049,13 @@ function attachCardListeners() {
     el.addEventListener('click', e => {
       e.stopPropagation();
       updateStatus(el.getAttribute('data-status-step'), el.getAttribute('data-status-value'));
+    });
+  });
+  document.querySelectorAll('[data-director-select]').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', () => {
+      const id = sel.getAttribute('data-director-select');
+      leadsRef.doc(id).update({ acquisitionDirector: sel.value }).catch(() => showToast('Could not update director.', 'error'));
     });
   });
   document.querySelectorAll('[data-field-input]').forEach(inp => {
@@ -1095,6 +1132,7 @@ function attachCardListeners() {
 /* ---------------- Controls ---------------- */
 document.getElementById('search-input').addEventListener('input', e => { search = e.target.value; render(); });
 document.getElementById('status-filter').addEventListener('change', e => { statusFilter = e.target.value; render(); });
+document.getElementById('director-filter').addEventListener('change', e => { directorFilter = e.target.value; render(); });
 document.getElementById('sort-by').addEventListener('change', e => { sortBy = e.target.value; render(); });
 document.getElementById('select-all-checkbox').addEventListener('change', e => {
   const filtered = getFiltered();
