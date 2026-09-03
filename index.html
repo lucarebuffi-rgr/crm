@@ -69,6 +69,12 @@
   .controls select {
     padding: 9px 12px; border-radius: 8px; border: 1px solid #22385a; background: #142640; color: #e8ecf1; font-size: 14px;
   }
+  .date-filter-wrap { display: flex; align-items: center; gap: 6px; }
+  .date-filter-wrap label { font-size: 13px; color: #8a97a8; white-space: nowrap; }
+  .date-filter-wrap input[type="date"] {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid #22385a; background: #142640; color: #e8ecf1; font-size: 14px;
+  }
+  .date-filter-wrap .btn-ghost { padding: 8px 10px; font-size: 12px; }
 
   .empty-state { text-align: center; padding: 60px 20px; color: #8a97a8; border: 1px dashed #22385a; border-radius: 12px; }
 
@@ -291,6 +297,11 @@
         <option value="attempts">Most attempts</option>
         <option value="name">Name A–Z</option>
       </select>
+      <div class="date-filter-wrap">
+        <label for="added-date-filter">Added on:</label>
+        <input type="date" id="added-date-filter" />
+        <button class="btn-ghost" id="added-date-clear" title="Clear date filter">✕</button>
+      </div>
     </div>
 
     <div class="bulk-bar">
@@ -422,6 +433,7 @@ let expandedId = null;
 let search = '';
 let statusFilter = 'active';
 let directorFilter = 'all';
+let addedDateFilter = '';
 let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
 let taskDrafts = {}; // per-lead in-progress new-task form state
@@ -663,10 +675,12 @@ function jumpToLead(leadId) {
   expandedId = leadId;
   statusFilter = 'all';
   directorFilter = 'all';
+  addedDateFilter = '';
   search = '';
   document.getElementById('search-input').value = '';
   document.getElementById('status-filter').value = 'all';
   document.getElementById('director-filter').value = 'all';
+  document.getElementById('added-date-filter').value = '';
   render();
 }
 
@@ -741,6 +755,14 @@ function getFiltered() {
     list = list.filter(l => !l.acquisitionDirector);
   } else if (directorFilter !== 'all') {
     list = list.filter(l => l.acquisitionDirector === directorFilter);
+  }
+  if (addedDateFilter) {
+    list = list.filter(l => {
+      if (!l.addedAt) return false;
+      const d = new Date(l.addedAt);
+      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      return ds === addedDateFilter;
+    });
   }
   const q = search.trim().toLowerCase();
   if (q) {
@@ -1135,6 +1157,12 @@ function attachCardListeners() {
 document.getElementById('search-input').addEventListener('input', e => { search = e.target.value; render(); });
 document.getElementById('status-filter').addEventListener('change', e => { statusFilter = e.target.value; render(); });
 document.getElementById('director-filter').addEventListener('change', e => { directorFilter = e.target.value; render(); });
+document.getElementById('added-date-filter').addEventListener('change', e => { addedDateFilter = e.target.value; render(); });
+document.getElementById('added-date-clear').addEventListener('click', () => {
+  addedDateFilter = '';
+  document.getElementById('added-date-filter').value = '';
+  render();
+});
 document.getElementById('sort-by').addEventListener('change', e => { sortBy = e.target.value; render(); });
 document.getElementById('select-all-checkbox').addEventListener('change', e => {
   const filtered = getFiltered();
