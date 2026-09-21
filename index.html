@@ -283,6 +283,7 @@
 
   <div class="content">
     <div class="stats-grid" id="stats-grid"></div>
+    <div id="total-leads-wrap" style="display:flex; justify-content:center; margin-bottom:20px;"></div>
 
     <div class="agenda-toggle">
       <button class="agenda-btn" id="today-tasks-btn">📅 Today's Tasks (<span class="count" id="today-count">0</span>)</button>
@@ -1056,9 +1057,7 @@ function renderStats() {
     .filter(l => l.status === 'deal')
     .reduce((sum, l) => sum + parseMoney(l.leadValue), 0);
 
-  let html = `<button class="stat-card ${statusFilter==='all'?'active':''}" data-filter="all">
-      <div class="stat-value" style="color:#e8ecf1">${counts.total}</div>
-      <div class="stat-label">Total Leads</div></button>`;
+  let html = '';
   STATUSES.forEach(s => {
     let subheader = '';
     if (s.id === 'under_contract') subheader = `<div class="stat-sub">$${pipelineValue.toLocaleString()}</div>`;
@@ -1074,6 +1073,16 @@ function renderStats() {
       document.getElementById('status-filter').value = ['all','active'].includes(statusFilter) ? statusFilter : 'all';
       render();
     });
+  });
+
+  const totalWrap = document.getElementById('total-leads-wrap');
+  totalWrap.innerHTML = `<button class="stat-card ${statusFilter==='all'?'active':''}" data-filter="all" style="max-width:160px;">
+      <div class="stat-value" style="color:#e8ecf1">${counts.total}</div>
+      <div class="stat-label">Total Leads</div></button>`;
+  totalWrap.querySelector('[data-filter]').addEventListener('click', () => {
+    statusFilter = 'all';
+    document.getElementById('status-filter').value = 'all';
+    render();
   });
 }
 
@@ -1224,8 +1233,18 @@ function renderCard(lead) {
           <div class="lead-address">📍 ${escapeHtml(lead.address)}${lead.address ? ', ' : ''}${escapeHtml(lead.city)} ${escapeHtml(lead.state)} ${escapeHtml(lead.zip)}</div>
         </div>
         <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}">📞 ${formatPhone(lead.phone)}</a>
-        <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">Z</a>
-        <a class="quick-link-btn streetview-btn" href="https://www.google.com/maps/place/${encodeURIComponent(fullAddressStr(lead))}" target="_blank" rel="noopener" title="Google Street View">📷</a>
+        <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
+          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/>
+            <path d="M8.3 14.6h6.9l-6.4 3.5h6.4" stroke="#0f6fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="quick-link-btn streetview-btn" href="https://www.google.com/maps/place/${encodeURIComponent(fullAddressStr(lead))}" target="_blank" rel="noopener" title="Google Street View">
+          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.6 6.6 11.7 7.1 12.16a.6.6 0 0 0 .8 0c.5-.46 7.1-6.56 7.1-12.16C19.5 5.36 16.14 2 12 2z" fill="#ffffff"/>
+            <circle cx="12" cy="9.5" r="3" fill="#4285f4"/>
+          </svg>
+        </a>
         <div class="call-meta">
           <div class="attempts mono">${lead.callAttempts||0} call${(lead.callAttempts||0)===1?'':'s'}</div>
           <div>${lead.lastCalledAt ? `last: ${timeAgo(lead.lastCalledAt)}` : `added ${shortDate(lead.addedAt)}`}</div>
