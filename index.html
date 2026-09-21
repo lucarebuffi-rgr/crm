@@ -99,11 +99,17 @@
   .lead-name-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .lead-name { font-weight: 700; font-size: 15px; }
   .status-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
-  .lead-address { font-size: 13px; color: #8a97a8; margin-top: 3px; }
+  .lead-address { font-size: 13.5px; color: #cddaf0; margin-top: 4px; font-weight: 600; }
   .call-link {
     color: #d4a843; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px;
     padding: 6px 10px; border: 1px solid #22385a; border-radius: 8px;
   }
+  .quick-link-btn {
+    width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px; color: #fff; flex-shrink: 0;
+  }
+  .zillow-btn { background: #0f6fff; }
+  .streetview-btn { background: #4285f4; font-size: 14px; }
   .call-meta { text-align: right; font-size: 12px; color: #8a97a8; min-width: 90px; }
   .call-meta .attempts { color: #e8ecf1; font-weight: 700; }
   .toggle-btn { background: none; border: none; color: #8a97a8; padding: 6px; font-size: 16px; pointer-events: none; }
@@ -182,6 +188,8 @@
   .task-when { font-family: 'JetBrains Mono', monospace; color: #d4a843; font-size: 12px; margin-top: 2px; }
   .task-notes-text { color: #8a97a8; font-size: 12px; margin-top: 3px; }
   .task-delete-btn { background: none; border: none; color: #ff8b7e; font-size: 16px; padding: 2px 4px; flex-shrink: 0; }
+  .task-edit-btn { background: none; border: none; color: #8a97a8; font-size: 14px; padding: 2px 4px; flex-shrink: 0; }
+  .task-cancel-edit-btn { background: none; border: none; color: #8a97a8; font-size: 12px; padding: 8px 4px; }
 
   .task-form { margin-top: 12px; border-top: 1px solid #22385a; padding-top: 12px; }
   .task-form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -204,6 +212,16 @@
     font-size: 13px; font-weight: 700;
   }
   .btn-danger:disabled { opacity: 0.35; cursor: default; }
+
+  .report-table { width: 100%; border-collapse: collapse; background: #142640; border: 1px solid #22385a; border-radius: 10px; overflow: hidden; }
+  .report-table th, .report-table td { padding: 10px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid #22385a; }
+  .report-table th { color: #8a97a8; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+  .report-table td.num { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+  .report-table tr:last-child td { border-bottom: none; }
+  .agenda-btn.active { background: #d4a843; color: #0d1b2e; border-color: #d4a843; }
+  .feed-row { font-size: 13px; padding: 8px 12px; border-bottom: 1px solid #22385a; display: flex; gap: 10px; color: #e8ecf1; }
+  .feed-row .feed-time { color: #8a97a8; font-family: 'JetBrains Mono', monospace; font-size: 12px; min-width: 130px; }
+  .feed-row .feed-director { color: #d4a843; font-weight: 700; min-width: 110px; }
 
   .modal-overlay {
     display: none; position: fixed; inset: 0; background: rgba(13,27,46,0.75);
@@ -342,6 +360,25 @@
   </div>
 </div>
 
+<div id="report-screen" style="display:none; min-height:100vh; padding:24px;">
+  <div style="max-width:900px; margin:0 auto;">
+    <h1 style="margin:0 0 4px;">Activity Report</h1>
+    <div style="font-size:13px; color:#8a97a8; margin-bottom:20px;">Calls logged, stage changes, and dial clicks, attributed by each lead's assigned director.</div>
+
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+      <button class="agenda-btn" data-report-range="1">Today</button>
+      <button class="agenda-btn" data-report-range="7">Last 7 Days</button>
+      <button class="agenda-btn" data-report-range="30">Last 30 Days</button>
+      <button class="agenda-btn" data-report-range="0">All Time</button>
+    </div>
+
+    <div id="report-summary"></div>
+
+    <h2 style="font-size:16px; margin:28px 0 12px;">Recent Activity</h2>
+    <div id="report-feed"></div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -367,6 +404,7 @@ const STATUSES = [
   { id: 'new',            label: 'New',                 color: '#5b8fd4' },
   { id: 'trying',         label: 'Trying to Reach',      color: '#e0954a' },
   { id: 'callback',       label: 'Qualified Leads',      color: '#7fb3d9' },
+  { id: 'followup',       label: 'Follow Ups',           color: '#c084fc' },
   { id: 'under_contract', label: 'Under Contract',       color: '#d4a843' },
   { id: 'not_interested', label: 'Not Interested',       color: '#8a97a8' },
   { id: 'dead',           label: 'Dead / Bad Number',    color: '#d9534f' },
@@ -420,6 +458,9 @@ function makeId() {
   if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
   return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
 }
+function fullAddressStr(lead) {
+  return [lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(', ');
+}
 function showToast(msg, kind) {
   const el = document.createElement('div');
   el.className = 'toast' + (kind === 'error' ? ' error' : '');
@@ -438,6 +479,7 @@ let addedDateFilter = '';
 let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
 let taskDrafts = {}; // per-lead in-progress new-task form state
+let editingTask = {}; // per-lead: id of the task currently being edited, if any
 let viewMode = 'leads'; // 'leads' | 'today' | 'tomorrow'
 let selectedIds = new Set();
 
@@ -454,7 +496,86 @@ function startListening() {
     console.error(err);
   });
 }
-startListening();
+const urlParams = new URLSearchParams(window.location.search);
+const isReportMode = urlParams.get('report') === '1';
+
+if (isReportMode) {
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('report-screen').style.display = 'block';
+  initReportMode();
+} else {
+  startListening();
+}
+
+let reportRangeDays = 7;
+let allActivity = [];
+
+async function initReportMode() {
+  try {
+    const snapshot = await db.collection('activityLog').orderBy('ts', 'desc').limit(5000).get();
+    allActivity = snapshot.docs.map(d => d.data());
+  } catch (e) {
+    allActivity = [];
+  }
+  renderReport();
+  document.querySelectorAll('[data-report-range]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      reportRangeDays = parseInt(btn.getAttribute('data-report-range'), 10);
+      renderReport();
+    });
+  });
+}
+
+function renderReport() {
+  document.querySelectorAll('[data-report-range]').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.getAttribute('data-report-range'), 10) === reportRangeDays);
+  });
+
+  let filtered = allActivity;
+  if (reportRangeDays > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - reportRangeDays);
+    filtered = allActivity.filter(a => new Date(a.ts) >= cutoff);
+  }
+
+  const byDirector = {};
+  filtered.forEach(a => {
+    const d = a.director || 'Unassigned';
+    if (!byDirector[d]) byDirector[d] = { call_logged: 0, status_changed: 0, dial_clicked: 0 };
+    if (byDirector[d][a.action] !== undefined) byDirector[d][a.action]++;
+  });
+
+  const directors = Object.keys(byDirector).sort();
+  let tableHtml = `<table class="report-table"><thead><tr>
+    <th>Director</th><th>Calls Logged</th><th>Stage Changes</th><th>Dial Clicks</th><th>Total</th>
+  </tr></thead><tbody>`;
+  if (directors.length === 0) {
+    tableHtml += `<tr><td colspan="5" style="color:#8a97a8;">No activity in this range.</td></tr>`;
+  }
+  directors.forEach(d => {
+    const c = byDirector[d];
+    const total = c.call_logged + c.status_changed + c.dial_clicked;
+    tableHtml += `<tr>
+      <td>${escapeHtml(d)}</td>
+      <td class="num">${c.call_logged}</td>
+      <td class="num">${c.status_changed}</td>
+      <td class="num">${c.dial_clicked}</td>
+      <td class="num">${total}</td>
+    </tr>`;
+  });
+  tableHtml += `</tbody></table>`;
+  document.getElementById('report-summary').innerHTML = tableHtml;
+
+  const feed = filtered.slice(0, 100);
+  const actionLabels = { call_logged: 'Logged a call', status_changed: 'Changed stage', dial_clicked: 'Clicked to dial' };
+  document.getElementById('report-feed').innerHTML = feed.map(a => `
+    <div class="feed-row">
+      <span class="feed-time">${new Date(a.ts).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
+      <span class="feed-director">${escapeHtml(a.director || 'Unassigned')}</span>
+      <span>${actionLabels[a.action] || a.action}${a.newStatus ? ' → ' + escapeHtml((STATUS_MAP[a.newStatus]||{}).label || a.newStatus) : ''}${a.outcome ? ' (' + escapeHtml(a.outcome) + ')' : ''} — ${escapeHtml(a.leadName || '')}</span>
+    </div>
+  `).join('') || `<div style="color:#8a97a8; font-size:13px;">No activity in this range.</div>`;
+}
 
 /* ---------------- CSV Upload ---------------- */
 /* ---------------- Add single lead ---------------- */
@@ -643,18 +764,48 @@ function addTask(leadId) {
   if (!name) { showToast('Give the task a name first.', 'error'); return; }
   const lead = leads.find(l => l.id === leadId);
   if (!lead) return;
-  const newTask = {
-    id: makeId(),
-    name,
-    date: draft.date || localDateStr(0),
-    time: draft.time || '',
-    notes: (draft.notes || '').trim(),
-    done: false,
-    createdAt: new Date().toISOString(),
-  };
-  const nextTasks = [...(lead.tasks || []), newTask];
+
+  const editId = editingTask[leadId];
+  let nextTasks;
+  if (editId) {
+    nextTasks = (lead.tasks || []).map(t => t.id === editId ? {
+      ...t,
+      name,
+      date: draft.date || localDateStr(0),
+      time: draft.time || '',
+      notes: (draft.notes || '').trim(),
+    } : t);
+  } else {
+    const newTask = {
+      id: makeId(),
+      name,
+      date: draft.date || localDateStr(0),
+      time: draft.time || '',
+      notes: (draft.notes || '').trim(),
+      done: false,
+      createdAt: new Date().toISOString(),
+    };
+    nextTasks = [...(lead.tasks || []), newTask];
+  }
   leadsRef.doc(leadId).update({ tasks: nextTasks }).catch(() => showToast('Could not save that task.', 'error'));
   taskDrafts[leadId] = {};
+  delete editingTask[leadId];
+}
+
+function editTask(leadId, taskId) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  const task = (lead.tasks || []).find(t => t.id === taskId);
+  if (!task) return;
+  taskDrafts[leadId] = { name: task.name, date: task.date, time: task.time, notes: task.notes };
+  editingTask[leadId] = taskId;
+  render();
+}
+
+function cancelEditTask(leadId) {
+  taskDrafts[leadId] = {};
+  delete editingTask[leadId];
+  render();
 }
 
 function deleteTask(leadId, taskId) {
@@ -686,8 +837,23 @@ function jumpToLead(leadId) {
 }
 
 /* ---------------- Lead updates ---------------- */
+function logActivity(leadId, action, extra) {
+  try {
+    const lead = leads.find(l => l.id === leadId);
+    db.collection('activityLog').add({
+      ts: new Date().toISOString(),
+      leadId,
+      leadName: lead ? `${lead.firstName} ${lead.lastName}`.trim() : '',
+      director: (lead && lead.acquisitionDirector) || 'Unassigned',
+      action,
+      ...(extra || {}),
+    }).catch(() => {});
+  } catch (e) {}
+}
+
 function updateStatus(id, status) {
   leadsRef.doc(id).update({ status }).catch(() => showToast('Could not update status.', 'error'));
+  logActivity(id, 'status_changed', { newStatus: status });
 }
 
 function toggleFire(id, current) {
@@ -740,6 +906,7 @@ function logCall(id) {
   }).then(() => {
     drafts[id] = { outcome: draft.outcome, text: '' };
   }).catch(() => showToast('Could not log that call.', 'error'));
+  logActivity(id, 'call_logged', { outcome: entry.outcome });
 }
 
 /* ---------------- Filtering / sorting ---------------- */
@@ -947,6 +1114,25 @@ function renderCard(lead) {
                 : `color:${s.color};`}">${s.label}</div>`).join('')}
         </div>
 
+        <div class="fin-grid" style="margin-bottom:14px;">
+          <div class="fin-field" style="grid-column: 1 / -1;">
+            <label>Property Address</label>
+            <input type="text" value="${escapeHtml(lead.address || '')}" data-field-input="${lead.id}" data-field-name="address" />
+          </div>
+          <div class="fin-field">
+            <label>City</label>
+            <input type="text" value="${escapeHtml(lead.city || '')}" data-field-input="${lead.id}" data-field-name="city" />
+          </div>
+          <div class="fin-field">
+            <label>State</label>
+            <input type="text" maxlength="2" style="text-transform:uppercase;" value="${escapeHtml(lead.state || '')}" data-field-input="${lead.id}" data-field-name="state" />
+          </div>
+          <div class="fin-field">
+            <label>Zip</label>
+            <input type="text" value="${escapeHtml(lead.zip || '')}" data-field-input="${lead.id}" data-field-name="zip" />
+          </div>
+        </div>
+
         <div class="fin-field" style="margin-bottom:14px;">
           <label>Acquisition Director</label>
           <select data-director-select="${lead.id}">
@@ -1006,6 +1192,7 @@ function renderCard(lead) {
                 <div class="task-when">${formatTaskDate(t.date)}${t.time ? ` · ${formatTaskTime(t.time)}` : ''}</div>
                 ${t.notes ? `<div class="task-notes-text">${escapeHtml(t.notes)}</div>` : ''}
               </div>
+              <button class="task-edit-btn" data-task-edit="${lead.id}" data-task-id-edit="${t.id}" title="Edit task">✎</button>
               <button class="task-delete-btn" data-task-delete="${lead.id}" data-task-id-del="${t.id}">✕</button>
             </div>`).join('')}</div>` : ''}
           <div class="task-form-row" style="margin-top:10px;">
@@ -1014,7 +1201,10 @@ function renderCard(lead) {
             <input type="time" value="${taskDraft.time || ''}" data-task-time-input="${lead.id}" />
           </div>
           <textarea placeholder="Task notes (optional)" data-task-notes-input="${lead.id}">${escapeHtml(taskDraft.notes || '')}</textarea>
-          <button class="add-task-btn" data-add-task="${lead.id}">+ Add Task</button>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="add-task-btn" data-add-task="${lead.id}">${editingTask[lead.id] ? '✓ Update Task' : '+ Add Task'}</button>
+            ${editingTask[lead.id] ? `<button class="task-cancel-edit-btn" data-task-cancel-edit="${lead.id}">Cancel</button>` : ''}
+          </div>
         </div>
       </div>`;
   }
@@ -1033,7 +1223,9 @@ function renderCard(lead) {
           </div>
           <div class="lead-address">📍 ${escapeHtml(lead.address)}${lead.address ? ', ' : ''}${escapeHtml(lead.city)} ${escapeHtml(lead.state)} ${escapeHtml(lead.zip)}</div>
         </div>
-        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link>📞 ${formatPhone(lead.phone)}</a>
+        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}">📞 ${formatPhone(lead.phone)}</a>
+        <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">Z</a>
+        <a class="quick-link-btn streetview-btn" href="https://www.google.com/maps/place/${encodeURIComponent(fullAddressStr(lead))}" target="_blank" rel="noopener" title="Google Street View">📷</a>
         <div class="call-meta">
           <div class="attempts mono">${lead.callAttempts||0} call${(lead.callAttempts||0)===1?'':'s'}</div>
           <div>${lead.lastCalledAt ? `last: ${timeAgo(lead.lastCalledAt)}` : `added ${shortDate(lead.addedAt)}`}</div>
@@ -1069,6 +1261,12 @@ function attachCardListeners() {
     });
   });
   document.querySelectorAll('[data-call-link]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.stopPropagation();
+      logActivity(a.getAttribute('data-call-link'), 'dial_clicked', {});
+    });
+  });
+  document.querySelectorAll('.quick-link-btn').forEach(a => {
     a.addEventListener('click', e => e.stopPropagation());
   });
   document.querySelectorAll('[data-status-step]').forEach(el => {
@@ -1151,6 +1349,18 @@ function attachCardListeners() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       deleteTask(btn.getAttribute('data-task-delete'), btn.getAttribute('data-task-id-del'));
+    });
+  });
+  document.querySelectorAll('[data-task-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      editTask(btn.getAttribute('data-task-edit'), btn.getAttribute('data-task-id-edit'));
+    });
+  });
+  document.querySelectorAll('[data-task-cancel-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      cancelEditTask(btn.getAttribute('data-task-cancel-edit'));
     });
   });
 }
