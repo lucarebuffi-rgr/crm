@@ -120,6 +120,16 @@
     flex: 1 1 100px; padding: 8px 6px; border-radius: 6px; text-align: center; font-size: 11px; font-weight: 700;
     border: 1px solid #22385a; background: #142640; color: #8a97a8; cursor: pointer;
   }
+  .substage-track { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+  .substage-step {
+    flex: 1 1 100px; padding: 6px 6px; border-radius: 6px; text-align: center; font-size: 10.5px; font-weight: 700;
+    border: 1px dashed #5fc9c0; background: transparent; color: #5fc9c0; cursor: pointer;
+  }
+  .substage-step.active { background: #5fc9c0; color: #0d1b2e; border-style: solid; }
+  .substage-badge {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: #5fc9c022;
+    color: #5fc9c0; border: 1px solid #5fc9c055; white-space: nowrap;
+  }
   .fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .fin-field label { display: block; font-size: 11px; color: #8a97a8; margin-bottom: 4px; }
   .fin-field input, .fin-field select {
@@ -413,6 +423,12 @@ const STATUSES = [
 ];
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.id, s]));
 
+// Sub-stages: optional finer-grained phases within a specific main stage.
+// Add more entries here (keyed by the main status id) to give other stages their own sub-phases too.
+const SUBSTAGES = {
+  callback: ['Must Underwrite', 'Submit Offer'],
+};
+
 const OUTCOMES = [
   { id: 'no_answer',          label: 'No Answer',            status: 'trying' },
   { id: 'voicemail',          label: 'Left Voicemail',       status: 'trying' },
@@ -627,6 +643,7 @@ async function saveNewLead() {
       mao: '',
       fireLead: false,
       acquisitionDirector: '',
+      subStage: '',
       tasks: [],
     });
     closeAddLeadModal();
@@ -718,6 +735,7 @@ function handleFile(file) {
             mao: '',
             fireLead: false,
             acquisitionDirector: '',
+            subStage: '',
             tasks: [],
           });
         });
@@ -853,8 +871,12 @@ function logActivity(leadId, action, extra) {
 }
 
 function updateStatus(id, status) {
-  leadsRef.doc(id).update({ status }).catch(() => showToast('Could not update status.', 'error'));
+  leadsRef.doc(id).update({ status, subStage: '' }).catch(() => showToast('Could not update status.', 'error'));
   logActivity(id, 'status_changed', { newStatus: status });
+}
+
+function updateSubStage(id, subStage) {
+  leadsRef.doc(id).update({ subStage }).catch(() => showToast('Could not update sub-stage.', 'error'));
 }
 
 function toggleFire(id, current) {
@@ -1123,6 +1145,11 @@ function renderCard(lead) {
                 : `color:${s.color};`}">${s.label}</div>`).join('')}
         </div>
 
+        ${SUBSTAGES[lead.status] ? `
+        <div class="substage-track">
+          ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
+        </div>` : ''}
+
         <div class="fin-grid" style="margin-bottom:14px;">
           <div class="fin-field" style="grid-column: 1 / -1;">
             <label>Property Address</label>
@@ -1227,6 +1254,7 @@ function renderCard(lead) {
           <div class="lead-name-line">
             <span class="lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)}</span>
             <span class="status-badge" style="background:${status.color}22;color:${status.color};border-color:${status.color}55">${status.label}</span>
+            ${lead.subStage ? `<span class="substage-badge">${escapeHtml(lead.subStage)}</span>` : ''}
             ${isFire ? `<span class="fire-badge">🔥 FIRE LEAD</span>` : ''}
             ${lead.acquisitionDirector ? `<span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}
           </div>
@@ -1292,6 +1320,16 @@ function attachCardListeners() {
     el.addEventListener('click', e => {
       e.stopPropagation();
       updateStatus(el.getAttribute('data-status-step'), el.getAttribute('data-status-value'));
+    });
+  });
+  document.querySelectorAll('[data-substage-step]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = el.getAttribute('data-substage-step');
+      const value = el.getAttribute('data-substage-value');
+      const lead = leads.find(l => l.id === id);
+      const isActive = lead && lead.subStage === value;
+      updateSubStage(id, isActive ? '' : value);
     });
   });
   document.querySelectorAll('[data-director-select]').forEach(sel => {
