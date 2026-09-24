@@ -300,7 +300,13 @@
       <button class="agenda-btn" id="tomorrow-tasks-btn">📅 Tomorrow's Tasks (<span class="count" id="tomorrow-count">0</span>)</button>
     </div>
 
-    <button class="agenda-back" id="agenda-back-btn" style="display:none;">← Back to leads</button>
+    <div id="agenda-controls" style="display:none; align-items:center; gap:10px; margin-bottom:16px;">
+      <button class="agenda-back" id="agenda-back-btn" style="margin-bottom:0;">← Back to leads</button>
+      <select id="agenda-director-filter">
+        <option value="all">All Directors</option>
+        <option value="unassigned">Unassigned</option>
+      </select>
+    </div>
 
     <div id="leads-controls">
     <div class="controls">
@@ -316,11 +322,6 @@
       <select id="director-filter">
         <option value="all">All Directors</option>
         <option value="unassigned">Unassigned</option>
-        <option value="Luca Rebuffi">Luca Rebuffi</option>
-        <option value="Jalen Albright">Jalen Albright</option>
-        <option value="Salena Carter">Salena Carter</option>
-        <option value="Ricky Roland">Ricky Roland</option>
-        <option value="Tony Oddo">Tony Oddo</option>
       </select>
       <select id="sort-by">
         <option value="newest">Newest first</option>
@@ -412,6 +413,10 @@ const db = firebase.firestore();
 const leadsRef = db.collection('leads');
 
 /* ---------------- Config: statuses & call outcomes ---------------- */
+// The single source of truth for who can be assigned as Acquisition Director.
+// Add a name here and it automatically shows up in every filter and every lead's director select.
+const DIRECTORS = ['Luca Rebuffi', 'Jalen Albright', 'Salena Carter', 'Ricky Roland', 'Tony Oddo'];
+
 const STATUSES = [
   { id: 'new',            label: 'New',                 color: '#5b8fd4' },
   { id: 'trying',         label: 'Trying to Reach',      color: '#e0954a' },
@@ -493,6 +498,7 @@ let expandedId = null;
 let search = '';
 let statusFilter = 'active';
 let directorFilter = 'all';
+let agendaDirectorFilter = 'all';
 let addedDateFilter = '';
 let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
@@ -514,6 +520,16 @@ function startListening() {
     console.error(err);
   });
 }
+DIRECTORS.forEach(d => {
+  const opt1 = document.createElement('option');
+  opt1.value = d; opt1.textContent = d;
+  document.getElementById('director-filter').appendChild(opt1);
+
+  const opt2 = document.createElement('option');
+  opt2.value = d; opt2.textContent = d;
+  document.getElementById('agenda-director-filter').appendChild(opt2);
+});
+
 const urlParams = new URLSearchParams(window.location.search);
 const isReportMode = urlParams.get('report') === '1';
 
@@ -978,13 +994,13 @@ function render() {
   renderAgendaToggle();
   if (viewMode === 'leads') {
     document.getElementById('leads-controls').style.display = '';
-    document.getElementById('agenda-back-btn').style.display = 'none';
+    document.getElementById('agenda-controls').style.display = 'none';
     renderStats();
     renderList();
     renderBulkBar();
   } else {
     document.getElementById('leads-controls').style.display = 'none';
-    document.getElementById('agenda-back-btn').style.display = '';
+    document.getElementById('agenda-controls').style.display = 'flex';
     renderStats();
     renderAgenda();
   }
@@ -1013,7 +1029,13 @@ function renderAgendaToggle() {
 function renderAgenda() {
   const container = document.getElementById('lead-list');
   const dateStr = viewMode === 'today' ? localDateStr(0) : localDateStr(1);
-  const items = getAllTasksFor(dateStr);
+  let items = getAllTasksFor(dateStr);
+
+  if (agendaDirectorFilter === 'unassigned') {
+    items = items.filter(i => !i.lead.acquisitionDirector);
+  } else if (agendaDirectorFilter !== 'all') {
+    items = items.filter(i => i.lead.acquisitionDirector === agendaDirectorFilter);
+  }
 
   if (items.length === 0) {
     container.innerHTML = `<div class="empty-state">No tasks scheduled for ${viewMode === 'today' ? 'today' : 'tomorrow'}.</div>`;
@@ -1024,7 +1046,7 @@ function renderAgenda() {
     <div class="agenda-item ${task.done ? 'is-done' : ''}" data-agenda-jump="${lead.id}">
       <input type="checkbox" class="agenda-done-cb" ${task.done ? 'checked' : ''} data-agenda-done="${lead.id}" data-task-id="${task.id}" />
       <div class="agenda-body">
-        <div class="agenda-task-name">${task.time ? `<span class="agenda-time">${formatTaskTime(task.time)}</span> ` : ''}${escapeHtml(task.name)}</div>
+        <div class="agenda-task-name">${task.time ? `<span class="agenda-time">${formatTaskTime(task.time)}</span> ` : ''}${escapeHtml(task.name)}${lead.acquisitionDirector ? ` <span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}</div>
         <div class="agenda-lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)} · ${formatPhone(lead.phone)}</div>
         ${task.notes ? `<div class="agenda-notes">${escapeHtml(task.notes)}</div>` : ''}
       </div>
@@ -1174,11 +1196,7 @@ function renderCard(lead) {
           <label>Acquisition Director</label>
           <select data-director-select="${lead.id}">
             <option value="" ${!lead.acquisitionDirector ? 'selected' : ''}>Unassigned</option>
-            <option value="Luca Rebuffi" ${lead.acquisitionDirector==='Luca Rebuffi' ? 'selected' : ''}>Luca Rebuffi</option>
-            <option value="Jalen Albright" ${lead.acquisitionDirector==='Jalen Albright' ? 'selected' : ''}>Jalen Albright</option>
-            <option value="Salena Carter" ${lead.acquisitionDirector==='Salena Carter' ? 'selected' : ''}>Salena Carter</option>
-            <option value="Ricky Roland" ${lead.acquisitionDirector==='Ricky Roland' ? 'selected' : ''}>Ricky Roland</option>
-            <option value="Tony Oddo" ${lead.acquisitionDirector==='Tony Oddo' ? 'selected' : ''}>Tony Oddo</option>
+            ${DIRECTORS.map(d => `<option value="${escapeHtml(d)}" ${lead.acquisitionDirector===d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
           </select>
         </div>
 
@@ -1428,6 +1446,7 @@ function attachCardListeners() {
 document.getElementById('search-input').addEventListener('input', e => { search = e.target.value; render(); });
 document.getElementById('status-filter').addEventListener('change', e => { statusFilter = e.target.value; render(); });
 document.getElementById('director-filter').addEventListener('change', e => { directorFilter = e.target.value; render(); });
+document.getElementById('agenda-director-filter').addEventListener('change', e => { agendaDirectorFilter = e.target.value; render(); });
 document.getElementById('added-date-filter').addEventListener('change', e => { addedDateFilter = e.target.value; render(); });
 document.getElementById('added-date-clear').addEventListener('click', () => {
   addedDateFilter = '';
