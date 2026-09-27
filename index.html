@@ -141,6 +141,20 @@
     width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #142640;
     color: #e8ecf1; font-size: 13px;
   }
+  .section-label {
+    font-size: 11px; color: #8a97a8; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 8px;
+  }
+  .address-field input {
+    font-size: 15px; font-weight: 700; color: #f0d788; padding-left: 14px;
+    border-left: 3px solid #d4a843;
+  }
+  .money-input { position: relative; }
+  .money-input .money-prefix {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #6f8098; font-size: 13px; pointer-events: none;
+  }
+  .money-input input { padding-left: 20px; }
   .outcome-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   .outcome-row select { padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #142640; color: #e8ecf1; font-size: 13px; flex: 1 1 160px; }
   .note-input {
@@ -951,6 +965,37 @@ function updateField(id, field, value) {
   leadsRef.doc(id).update({ [field]: value }).catch(() => showToast('Could not save that field.', 'error'));
 }
 
+function fullAddressText(lead) {
+  const cityStateZip = [lead.city, [lead.state, lead.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return [lead.address, cityStateZip].filter(Boolean).join(', ');
+}
+
+// Splits a single "Street, City, ST Zip" style line back into the four
+// underlying columns the CSV upload (and the rest of the CRM) still uses.
+function updateFullAddress(id, value) {
+  const parts = value.split(',').map(s => s.trim()).filter(Boolean);
+  let address = '', city = '', state = '', zip = '';
+  const stateZipMatch = s => s.match(/^([A-Za-z]{2})\s*(\d{5}(-\d{4})?)?$/);
+
+  if (parts.length >= 3) {
+    address = parts[0];
+    city = parts[1];
+    const m = stateZipMatch(parts.slice(2).join(' '));
+    if (m) { state = m[1].toUpperCase(); zip = m[2] || ''; }
+    else { state = parts[2]; }
+  } else if (parts.length === 2) {
+    address = parts[0];
+    const m = stateZipMatch(parts[1]);
+    if (m) { state = m[1].toUpperCase(); zip = m[2] || ''; }
+    else { city = parts[1]; }
+  } else {
+    address = parts[0] || '';
+  }
+
+  leadsRef.doc(id).update({ address, city, state, zip })
+    .catch(() => showToast('Could not save that address.', 'error'));
+}
+
 async function deleteLead(id) {
   if (!confirm('Delete this lead? This cannot be undone.')) return;
   try {
@@ -1328,26 +1373,13 @@ function renderCard(lead) {
           ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
         </div>` : ''}
 
-        <div class="fin-grid" style="margin-bottom:14px;">
-          <div class="fin-field" style="grid-column: 1 / -1;">
-            <label>Property Address</label>
-            <input type="text" value="${escapeHtml(lead.address || '')}" data-field-input="${lead.id}" data-field-name="address" />
-          </div>
-          <div class="fin-field">
-            <label>City</label>
-            <input type="text" value="${escapeHtml(lead.city || '')}" data-field-input="${lead.id}" data-field-name="city" />
-          </div>
-          <div class="fin-field">
-            <label>State</label>
-            <input type="text" maxlength="2" style="text-transform:uppercase;" value="${escapeHtml(lead.state || '')}" data-field-input="${lead.id}" data-field-name="state" />
-          </div>
-          <div class="fin-field">
-            <label>Zip</label>
-            <input type="text" value="${escapeHtml(lead.zip || '')}" data-field-input="${lead.id}" data-field-name="zip" />
-          </div>
+        <div class="section-label">Property</div>
+        <div class="fin-field address-field" style="margin-bottom:12px;">
+          <label>Property Address</label>
+          <input type="text" placeholder="Street, City, ST Zip" value="${escapeHtml(fullAddressText(lead))}" data-full-address-input="${lead.id}" />
         </div>
 
-        <div class="fin-field" style="margin-bottom:14px;">
+        <div class="fin-field" style="margin-bottom:18px;">
           <label>Acquisition Director</label>
           <select data-director-select="${lead.id}">
             <option value="" ${!lead.acquisitionDirector ? 'selected' : ''}>Unassigned</option>
@@ -1355,22 +1387,23 @@ function renderCard(lead) {
           </select>
         </div>
 
+        <div class="section-label">Deal Numbers</div>
         <div class="fin-grid">
           <div class="fin-field">
             <label>Lead Value</label>
-            <input type="text" inputmode="decimal" placeholder="$0" value="${escapeHtml(lead.leadValue || '')}" data-field-input="${lead.id}" data-field-name="leadValue" />
+            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.leadValue || '')}" data-field-input="${lead.id}" data-field-name="leadValue" /></div>
           </div>
           <div class="fin-field">
             <label>Asking Price</label>
-            <input type="text" inputmode="decimal" placeholder="$0" value="${escapeHtml(lead.askingPrice || '')}" data-field-input="${lead.id}" data-field-name="askingPrice" />
+            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.askingPrice || '')}" data-field-input="${lead.id}" data-field-name="askingPrice" /></div>
           </div>
           <div class="fin-field">
             <label>LAO</label>
-            <input type="text" inputmode="decimal" placeholder="$0" value="${escapeHtml(lead.lao || '')}" data-field-input="${lead.id}" data-field-name="lao" />
+            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.lao || '')}" data-field-input="${lead.id}" data-field-name="lao" /></div>
           </div>
           <div class="fin-field">
             <label>MAO</label>
-            <input type="text" inputmode="decimal" placeholder="$0" value="${escapeHtml(lead.mao || '')}" data-field-input="${lead.id}" data-field-name="mao" />
+            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.mao || '')}" data-field-input="${lead.id}" data-field-name="mao" /></div>
           </div>
         </div>
 
@@ -1536,6 +1569,12 @@ function attachCardListeners() {
     sel.addEventListener('change', () => {
       const id = sel.getAttribute('data-director-select');
       leadsRef.doc(id).update({ acquisitionDirector: sel.value }).catch(() => showToast('Could not update director.', 'error'));
+    });
+  });
+  document.querySelectorAll('[data-full-address-input]').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('blur', () => {
+      updateFullAddress(inp.getAttribute('data-full-address-input'), inp.value);
     });
   });
   document.querySelectorAll('[data-field-input]').forEach(inp => {
