@@ -218,10 +218,6 @@
     width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036;
     color: #e8ecf1; font-size: 13px; resize: vertical; margin-bottom: 8px;
   }
-  .add-task-btn {
-    background: none; border: 1px solid #d4a843; color: #d4a843; border-radius: 6px; padding: 7px 12px;
-    font-size: 12px; font-weight: 700;
-  }
   .photo-section { margin-top: 16px; border-top: 1px solid #22385a; padding-top: 12px; }
   .drive-link-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .drive-link-row input {
@@ -542,6 +538,7 @@ let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
 let taskDrafts = {}; // per-lead in-progress new-task form state
 let editingTask = {}; // per-lead: id of the task currently being edited, if any
+let taskFormOpen = {}; // per-lead: true while the add/edit task fields are expanded
 let editingDriveLink = {}; // per-lead: true while the raw Drive link input is shown instead of the resolved link
 let expandedNotes = {}; // "leadId::timestamp" -> true when that call note is expanded
 let viewMode = 'leads'; // 'leads' | 'today' | 'tomorrow'
@@ -868,6 +865,12 @@ function addTask(leadId) {
   leadsRef.doc(leadId).update({ tasks: nextTasks }).catch(() => showToast('Could not save that task.', 'error'));
   taskDrafts[leadId] = {};
   delete editingTask[leadId];
+  taskFormOpen[leadId] = false;
+}
+
+function openTaskForm(leadId) {
+  taskFormOpen[leadId] = true;
+  render();
 }
 
 function editTask(leadId, taskId) {
@@ -877,12 +880,14 @@ function editTask(leadId, taskId) {
   if (!task) return;
   taskDrafts[leadId] = { name: task.name, date: task.date, time: task.time, notes: task.notes };
   editingTask[leadId] = taskId;
+  taskFormOpen[leadId] = true;
   render();
 }
 
 function cancelEditTask(leadId) {
   taskDrafts[leadId] = {};
   delete editingTask[leadId];
+  taskFormOpen[leadId] = false;
   render();
 }
 
@@ -1406,6 +1411,7 @@ function renderCard(lead) {
               <button class="task-edit-btn" data-task-edit="${lead.id}" data-task-id-edit="${t.id}" title="Edit task">✎</button>
               <button class="task-delete-btn" data-task-delete="${lead.id}" data-task-id-del="${t.id}">✕</button>
             </div>`).join('')}</div>` : ''}
+          ${(taskFormOpen[lead.id] || editingTask[lead.id]) ? `
           <div class="task-form-row" style="margin-top:10px;">
             <input type="text" placeholder="Task name" value="${escapeHtml(taskDraft.name || '')}" data-task-name-input="${lead.id}" />
             <input type="date" value="${taskDraft.date || ''}" data-task-date-input="${lead.id}" />
@@ -1413,9 +1419,12 @@ function renderCard(lead) {
           </div>
           <textarea placeholder="Task notes (optional)" data-task-notes-input="${lead.id}">${escapeHtml(taskDraft.notes || '')}</textarea>
           <div style="display:flex; gap:10px; align-items:center;">
-            <button class="add-task-btn" data-add-task="${lead.id}">${editingTask[lead.id] ? '✓ Update Task' : '+ Add Task'}</button>
-            ${editingTask[lead.id] ? `<button class="task-cancel-edit-btn" data-task-cancel-edit="${lead.id}">Cancel</button>` : ''}
+            <button class="log-call-btn" data-add-task="${lead.id}">${editingTask[lead.id] ? '✓ Update Task' : '+ Add Task'}</button>
+            <button class="task-cancel-edit-btn" data-task-cancel-edit="${lead.id}">Cancel</button>
           </div>
+          ` : `
+          <button class="log-call-btn" data-open-task-form="${lead.id}">+ Add Task</button>
+          `}
         </div>
 
         ${PHOTO_STAGES.includes(lead.status) ? `
@@ -1588,6 +1597,9 @@ function attachCardListeners() {
   });
   document.querySelectorAll('[data-add-task]').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); addTask(btn.getAttribute('data-add-task')); });
+  });
+  document.querySelectorAll('[data-open-task-form]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); openTaskForm(btn.getAttribute('data-open-task-form')); });
   });
   document.querySelectorAll('[data-task-done]').forEach(cb => {
     cb.addEventListener('click', e => e.stopPropagation());
