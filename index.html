@@ -760,7 +760,7 @@ function handleFile(file) {
           else if (n.includes('address')) fieldMap.address = h;
           else if (n.includes('city')) fieldMap.city = h;
           else if (n.includes('state')) fieldMap.state = h;
-          else if (n.includes('zip')) fieldMap.zip = h;
+          else if (n.includes('zip') || n.includes('postal')) fieldMap.zip = h;
           else if (n.includes('phone')) fieldMap.phone = h;
         });
 
