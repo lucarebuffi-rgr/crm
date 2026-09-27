@@ -217,6 +217,20 @@
     background: none; border: 1px solid #d4a843; color: #d4a843; border-radius: 6px; padding: 7px 12px;
     font-size: 12px; font-weight: 700;
   }
+  .photo-section { margin-top: 16px; border-top: 1px solid #22385a; padding-top: 12px; }
+  .drive-link-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .drive-link-row input {
+    flex: 1 1 220px; padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #142640;
+    color: #e8ecf1; font-size: 13px;
+  }
+  .drive-open-btn {
+    background: #d4a843; color: #0d1b2e; border: none; border-radius: 6px; padding: 8px 14px;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .dormant-badge {
+    font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 20px; background: #d9534f22;
+    color: #ff8b7e; border: 1px solid #d9534f55; white-space: nowrap;
+  }
   .btn-danger {
     background: #3a1e1e; border: 1px solid #d9534f; color: #ff8b7e; border-radius: 8px; padding: 8px 14px;
     font-size: 13px; font-weight: 700;
@@ -298,6 +312,7 @@
     <div class="agenda-toggle">
       <button class="agenda-btn" id="today-tasks-btn">📅 Today's Tasks (<span class="count" id="today-count">0</span>)</button>
       <button class="agenda-btn" id="tomorrow-tasks-btn">📅 Tomorrow's Tasks (<span class="count" id="tomorrow-count">0</span>)</button>
+      <button class="agenda-btn" id="dormant-tasks-btn">📅 Dormant Tasks 😴 (<span class="count" id="dormant-count">0</span>)</button>
     </div>
 
     <div id="agenda-controls" style="display:none; align-items:center; gap:10px; margin-bottom:16px;">
@@ -416,6 +431,8 @@ const leadsRef = db.collection('leads');
 // The single source of truth for who can be assigned as Acquisition Director.
 // Add a name here and it automatically shows up in every filter and every lead's director select.
 const DIRECTORS = ['Luca Rebuffi', 'Jalen Albright', 'Salena Carter', 'Ricky Roland', 'Tony Oddo'];
+// Stages where a lead with no open task should show the "no task scheduled" warning on its collapsed row.
+const DORMANT_INDICATOR_STAGES = ['callback', 'followup', 'under_contract'];
 
 const STATUSES = [
   { id: 'new',            label: 'New',                 color: '#5b8fd4' },
@@ -662,6 +679,7 @@ async function saveNewLead() {
       acquisitionDirector: '',
       subStage: '',
       tasks: [],
+      driveFolderUrl: '',
     });
     closeAddLeadModal();
     showToast(`Added ${lead.firstName} ${lead.lastName}.`, 'success');
@@ -754,6 +772,7 @@ function handleFile(file) {
             acquisitionDirector: '',
             subStage: '',
             tasks: [],
+            driveFolderUrl: '',
           });
         });
 
@@ -930,6 +949,9 @@ async function deleteSelected() {
   }
 }
 
+/* ---------------- Photos (Google Drive link) ---------------- */
+const PHOTO_STAGES = ['callback', 'followup', 'under_contract', 'deal'];
+
 function logCall(id) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
   const outcome = OUTCOMES.find(o => o.id === draft.outcome);
@@ -1017,19 +1039,33 @@ function getAllTasksFor(dateStr) {
   return items;
 }
 
+function getDormantTasks() {
+  const todayStr = localDateStr(0);
+  const items = [];
+  leads.forEach(lead => {
+    (lead.tasks || []).forEach(task => {
+      if (!task.done && task.date && task.date < todayStr) items.push({ lead, task });
+    });
+  });
+  items.sort((a, b) => (a.task.date + (a.task.time || '99:99')).localeCompare(b.task.date + (b.task.time || '99:99')));
+  return items;
+}
+
 function renderAgendaToggle() {
   const todayStr = localDateStr(0);
   const tomorrowStr = localDateStr(1);
   document.getElementById('today-count').textContent = getAllTasksFor(todayStr).filter(i => !i.task.done).length;
   document.getElementById('tomorrow-count').textContent = getAllTasksFor(tomorrowStr).filter(i => !i.task.done).length;
+  document.getElementById('dormant-count').textContent = getDormantTasks().length;
   document.getElementById('today-tasks-btn').classList.toggle('active', viewMode === 'today');
   document.getElementById('tomorrow-tasks-btn').classList.toggle('active', viewMode === 'tomorrow');
+  document.getElementById('dormant-tasks-btn').classList.toggle('active', viewMode === 'dormant');
 }
 
 function renderAgenda() {
   const container = document.getElementById('lead-list');
-  const dateStr = viewMode === 'today' ? localDateStr(0) : localDateStr(1);
-  let items = getAllTasksFor(dateStr);
+  const isDormantView = viewMode === 'dormant';
+  let items = isDormantView ? getDormantTasks() : getAllTasksFor(viewMode === 'today' ? localDateStr(0) : localDateStr(1));
 
   if (agendaDirectorFilter === 'unassigned') {
     items = items.filter(i => !i.lead.acquisitionDirector);
@@ -1038,19 +1074,25 @@ function renderAgenda() {
   }
 
   if (items.length === 0) {
-    container.innerHTML = `<div class="empty-state">No tasks scheduled for ${viewMode === 'today' ? 'today' : 'tomorrow'}.</div>`;
+    const emptyLabel = isDormantView ? 'No dormant tasks — everything is on track.' : `No tasks scheduled for ${viewMode === 'today' ? 'today' : 'tomorrow'}.`;
+    container.innerHTML = `<div class="empty-state">${emptyLabel}</div>`;
     return;
   }
 
-  container.innerHTML = items.map(({ lead, task }) => `
+  container.innerHTML = items.map(({ lead, task }) => {
+    const whenLabel = isDormantView
+      ? `<span class="agenda-time" style="color:#ff8b7e;">${formatTaskDate(task.date)}${task.time ? ' · ' + formatTaskTime(task.time) : ''}</span> `
+      : (task.time ? `<span class="agenda-time">${formatTaskTime(task.time)}</span> ` : '');
+    return `
     <div class="agenda-item ${task.done ? 'is-done' : ''}" data-agenda-jump="${lead.id}">
       <input type="checkbox" class="agenda-done-cb" ${task.done ? 'checked' : ''} data-agenda-done="${lead.id}" data-task-id="${task.id}" />
       <div class="agenda-body">
-        <div class="agenda-task-name">${task.time ? `<span class="agenda-time">${formatTaskTime(task.time)}</span> ` : ''}${escapeHtml(task.name)}${lead.acquisitionDirector ? ` <span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}</div>
+        <div class="agenda-task-name">${whenLabel}${escapeHtml(task.name)}${lead.acquisitionDirector ? ` <span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}</div>
         <div class="agenda-lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)} · ${formatPhone(lead.phone)}</div>
         ${task.notes ? `<div class="agenda-notes">${escapeHtml(task.notes)}</div>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   container.querySelectorAll('[data-agenda-done]').forEach(cb => {
     cb.addEventListener('click', e => e.stopPropagation());
@@ -1069,6 +1111,10 @@ document.getElementById('today-tasks-btn').addEventListener('click', () => {
 });
 document.getElementById('tomorrow-tasks-btn').addEventListener('click', () => {
   viewMode = viewMode === 'tomorrow' ? 'leads' : 'tomorrow';
+  render();
+});
+document.getElementById('dormant-tasks-btn').addEventListener('click', () => {
+  viewMode = viewMode === 'dormant' ? 'leads' : 'dormant';
   render();
 });
 document.getElementById('agenda-back-btn').addEventListener('click', () => {
@@ -1154,6 +1200,8 @@ function renderCard(lead) {
   const isFire = !!lead.fireLead;
   const isSelected = selectedIds.has(lead.id);
   const notes = lead.notes || [];
+  const hasOpenTask = (lead.tasks || []).some(t => !t.done);
+  const isDormant = DORMANT_INDICATOR_STAGES.includes(lead.status) && !hasOpenTask;
 
   let detail = '';
   if (isOpen) {
@@ -1262,6 +1310,15 @@ function renderCard(lead) {
             ${editingTask[lead.id] ? `<button class="task-cancel-edit-btn" data-task-cancel-edit="${lead.id}">Cancel</button>` : ''}
           </div>
         </div>
+
+        ${PHOTO_STAGES.includes(lead.status) ? `
+        <div class="photo-section">
+          <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">PHOTOS (GOOGLE DRIVE)</div>
+          <div class="drive-link-row">
+            <input type="text" placeholder="Paste the Google Drive folder link for this property" value="${escapeHtml(lead.driveFolderUrl || '')}" data-field-input="${lead.id}" data-field-name="driveFolderUrl" />
+            ${lead.driveFolderUrl ? `<a class="drive-open-btn" href="${escapeHtml(lead.driveFolderUrl)}" target="_blank" rel="noopener">📁 Open Photos</a>` : ''}
+          </div>
+        </div>` : ''}
       </div>`;
   }
 
@@ -1274,6 +1331,7 @@ function renderCard(lead) {
           <div class="lead-name-line">
             <span class="lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)}</span>
             <span class="status-badge" style="background:${status.color}22;color:${status.color};border-color:${status.color}55">${status.label}</span>
+            ${isDormant ? `<span class="dormant-badge" title="No open task scheduled for this lead">❗ No Task</span>` : ''}
             ${lead.subStage ? `<span class="substage-badge">${escapeHtml(lead.subStage)}</span>` : ''}
             ${isFire ? `<span class="fire-badge">🔥 FIRE LEAD</span>` : ''}
             ${lead.acquisitionDirector ? `<span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}
