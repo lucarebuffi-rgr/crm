@@ -225,7 +225,12 @@
   }
   .drive-open-btn {
     background: #d4a843; color: #0d1b2e; border: none; border-radius: 6px; padding: 8px 14px;
-    font-size: 12px; font-weight: 700; white-space: nowrap;
+    font-size: 12px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1 1 auto; min-width: 0;
+  }
+  .drive-edit-btn {
+    background: none; border: 1px solid #22385a; color: #8a97a8; border-radius: 6px; padding: 7px 10px;
+    font-size: 13px; flex-shrink: 0;
   }
   .drive-carousel { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; }
   .drive-thumb-link { flex: 0 0 auto; }
@@ -532,6 +537,8 @@ let sortBy = 'newest';
 let drafts = {}; // per-lead in-progress call-log form state, survives re-renders
 let taskDrafts = {}; // per-lead in-progress new-task form state
 let editingTask = {}; // per-lead: id of the task currently being edited, if any
+let editingDriveLink = {}; // per-lead: true while the raw Drive link input is shown instead of the resolved link
+let expandedNotes = {}; // "leadId::timestamp" -> true when that call note is expanded
 let viewMode = 'leads'; // 'leads' | 'today' | 'tomorrow'
 let selectedIds = new Set();
 
@@ -1015,6 +1022,33 @@ function renderDriveCarousel(leadId, files) {
     </a>`).join('');
 }
 
+async function fetchDriveFolderName(leadId, folderUrl) {
+  const linkEl = document.getElementById('drive-link-name-' + leadId);
+  if (!linkEl) return;
+  const folderId = extractDriveFolderId(folderUrl);
+  if (!folderId) {
+    linkEl.textContent = '📁 Open Photos';
+    return;
+  }
+  if (driveCache[folderId] && driveCache[folderId].name) {
+    linkEl.textContent = '📁 ' + driveCache[folderId].name;
+    return;
+  }
+  try {
+    const apiUrl = `https://www.googleapis.com/drive/v3/files/${folderId}?key=${GOOGLE_API_KEY}&fields=name`;
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    driveCache[folderId] = { ...(driveCache[folderId] || {}), name: data.name };
+    // guard against the card having been collapsed/re-rendered while this was in flight
+    const stillThere = document.getElementById('drive-link-name-' + leadId);
+    if (stillThere) stillThere.textContent = '📁 ' + data.name;
+  } catch (e) {
+    const stillThere = document.getElementById('drive-link-name-' + leadId);
+    if (stillThere) stillThere.textContent = '📁 Open Photos';
+  }
+}
+
 function logCall(id) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
   const outcome = OUTCOMES.find(o => o.id === draft.outcome);
@@ -1340,14 +1374,19 @@ function renderCard(lead) {
           <button class="log-call-btn" data-log-call="${lead.id}">+ Log Call</button>
           <button class="delete-lead-btn" data-delete-lead="${lead.id}">Delete Lead</button>
         </div>
-        ${notes.length ? `<div class="notes-list">${notes.slice().reverse().map(n => `
+        ${notes.length ? `<div class="notes-list">${notes.slice().reverse().map(n => {
+          const noteKey = lead.id + '::' + n.at;
+          const isNoteOpen = !!expandedNotes[noteKey];
+          return `
           <div class="note-entry">
-            <div class="note-meta">
+            <div class="note-meta" data-note-toggle="${escapeHtml(noteKey)}" style="cursor:pointer;">
               🕒 ${new Date(n.at).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}
               <span class="note-outcome">${escapeHtml(n.outcome)}</span>
+              ${n.text ? `<span style="margin-left:auto; color:#8a97a8;">${isNoteOpen ? '▴' : '▾'}</span>` : ''}
             </div>
-            ${n.text ? `<div class="note-text">${escapeHtml(n.text)}</div>` : ''}
-          </div>`).join('')}</div>` : ''}
+            ${(n.text && isNoteOpen) ? `<div class="note-text">${escapeHtml(n.text)}</div>` : ''}
+          </div>`;
+        }).join('')}</div>` : ''}
 
         <div class="task-form">
           <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">TASKS</div>
@@ -1377,10 +1416,14 @@ function renderCard(lead) {
         ${PHOTO_STAGES.includes(lead.status) ? `
         <div class="photo-section">
           <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">PHOTOS</div>
+          ${(!lead.driveFolderUrl || editingDriveLink[lead.id]) ? `
           <div class="drive-link-row">
-            <input type="text" placeholder="Paste the Google Drive folder link for this property" value="${escapeHtml(lead.driveFolderUrl || '')}" data-field-input="${lead.id}" data-field-name="driveFolderUrl" />
-            ${lead.driveFolderUrl ? `<a class="drive-open-btn" href="${escapeHtml(lead.driveFolderUrl)}" target="_blank" rel="noopener">📁 Open Photos</a>` : ''}
-          </div>
+            <input type="text" placeholder="Paste the Google Drive folder link for this property" value="${escapeHtml(lead.driveFolderUrl || '')}" data-field-input="${lead.id}" data-field-name="driveFolderUrl" data-drive-link-input="${lead.id}" />
+          </div>` : `
+          <div class="drive-link-row">
+            <a class="drive-open-btn" href="${escapeHtml(lead.driveFolderUrl)}" target="_blank" rel="noopener" id="drive-link-name-${lead.id}">📁 Loading folder name…</a>
+            <button class="drive-edit-btn" data-drive-edit="${lead.id}" title="Change link">✎</button>
+          </div>`}
           ${lead.driveFolderUrl ? `<div class="drive-carousel" id="drive-carousel-${lead.id}" data-drive-carousel="${lead.id}" data-drive-url="${escapeHtml(lead.driveFolderUrl)}"></div>` : ''}
         </div>` : ''}
       </div>`;
@@ -1484,7 +1527,10 @@ function attachCardListeners() {
   document.querySelectorAll('[data-field-input]').forEach(inp => {
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('blur', () => {
-      updateField(inp.getAttribute('data-field-input'), inp.getAttribute('data-field-name'), inp.value);
+      const leadId = inp.getAttribute('data-field-input');
+      const fieldName = inp.getAttribute('data-field-name');
+      updateField(leadId, fieldName, inp.value);
+      if (fieldName === 'driveFolderUrl') delete editingDriveLink[leadId];
     });
   });
   document.querySelectorAll('[data-outcome-select]').forEach(sel => {
@@ -1566,6 +1612,26 @@ function attachCardListeners() {
     const leadId = el.getAttribute('data-drive-carousel');
     const url = el.getAttribute('data-drive-url');
     if (url) fetchDrivePhotos(leadId, url);
+  });
+  document.querySelectorAll('[id^="drive-link-name-"]').forEach(a => {
+    a.addEventListener('click', e => e.stopPropagation());
+    const leadId = a.id.replace('drive-link-name-', '');
+    fetchDriveFolderName(leadId, a.getAttribute('href'));
+  });
+  document.querySelectorAll('[data-drive-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      editingDriveLink[btn.getAttribute('data-drive-edit')] = true;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-note-toggle]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const key = el.getAttribute('data-note-toggle');
+      expandedNotes[key] = !expandedNotes[key];
+      render();
+    });
   });
 }
 
