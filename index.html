@@ -227,6 +227,10 @@
     background: #d4a843; color: #0d1b2e; border: none; border-radius: 6px; padding: 8px 14px;
     font-size: 12px; font-weight: 700; white-space: nowrap;
   }
+  .drive-carousel { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; }
+  .drive-thumb-link { flex: 0 0 auto; }
+  .drive-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #3a5a85; display: block; }
+  .drive-carousel-msg { font-size: 12px; color: #8a97a8; margin-top: 8px; }
   .dormant-badge {
     font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 20px; background: #d9534f22;
     color: #ff8b7e; border: 1px solid #d9534f55; white-space: nowrap;
@@ -422,6 +426,13 @@ const firebaseConfig = {
   messagingSenderId: "970218702810",
   appId: "1:970218702810:web:03409e8b0e971bb0b6e2e3"
 };
+
+/* =========================================================================
+   GOOGLE DRIVE API KEY — powers the photo carousel (reads folders you've
+   shared as "Anyone with the link"). Get it from Google Cloud Console →
+   APIs & Services → Credentials, after enabling the Google Drive API.
+   ========================================================================= */
+const GOOGLE_API_KEY = "AIzaSyBV20moxsKtzMqfg66XdaQ8Q4tGGNAK6I0";
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -951,6 +962,58 @@ async function deleteSelected() {
 
 /* ---------------- Photos (Google Drive link) ---------------- */
 const PHOTO_STAGES = ['callback', 'followup', 'under_contract', 'deal'];
+const driveCache = {}; // folderId -> { status: 'done'|'error', files: [...] } — avoids re-fetching the same folder repeatedly
+
+function extractDriveFolderId(url) {
+  if (!url) return null;
+  const m = url.match(/folders\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+async function fetchDrivePhotos(leadId, folderUrl) {
+  const container = document.getElementById('drive-carousel-' + leadId);
+  if (!container) return;
+  const folderId = extractDriveFolderId(folderUrl);
+  if (!folderId) {
+    container.innerHTML = `<div class="drive-carousel-msg">Couldn't read a folder link from that URL.</div>`;
+    return;
+  }
+  if (driveCache[folderId] && driveCache[folderId].status === 'done') {
+    renderDriveCarousel(leadId, driveCache[folderId].files);
+    return;
+  }
+  if (driveCache[folderId] && driveCache[folderId].status === 'error') {
+    container.innerHTML = `<div class="drive-carousel-msg">Couldn't load photos — make sure the folder is shared as "Anyone with the link".</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="drive-carousel-msg">Loading photos…</div>`;
+  try {
+    const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed = false`);
+    const apiUrl = `https://www.googleapis.com/drive/v3/files?q=${q}&key=${GOOGLE_API_KEY}&fields=files(id,name,thumbnailLink)&pageSize=50`;
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const files = data.files || [];
+    driveCache[folderId] = { status: 'done', files };
+    renderDriveCarousel(leadId, files);
+  } catch (e) {
+    driveCache[folderId] = { status: 'error' };
+    container.innerHTML = `<div class="drive-carousel-msg">Couldn't load photos — make sure the folder is shared as "Anyone with the link".</div>`;
+  }
+}
+
+function renderDriveCarousel(leadId, files) {
+  const container = document.getElementById('drive-carousel-' + leadId);
+  if (!container) return;
+  if (!files.length) {
+    container.innerHTML = `<div class="drive-carousel-msg">No images found in that folder yet.</div>`;
+    return;
+  }
+  container.innerHTML = files.map(f => `
+    <a href="https://drive.google.com/file/d/${f.id}/view" target="_blank" rel="noopener" class="drive-thumb-link" title="${escapeHtml(f.name)}">
+      <img src="${f.thumbnailLink}" class="drive-thumb" loading="lazy" />
+    </a>`).join('');
+}
 
 function logCall(id) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
@@ -1313,11 +1376,12 @@ function renderCard(lead) {
 
         ${PHOTO_STAGES.includes(lead.status) ? `
         <div class="photo-section">
-          <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">PHOTOS (GOOGLE DRIVE)</div>
+          <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">PHOTOS</div>
           <div class="drive-link-row">
             <input type="text" placeholder="Paste the Google Drive folder link for this property" value="${escapeHtml(lead.driveFolderUrl || '')}" data-field-input="${lead.id}" data-field-name="driveFolderUrl" />
             ${lead.driveFolderUrl ? `<a class="drive-open-btn" href="${escapeHtml(lead.driveFolderUrl)}" target="_blank" rel="noopener">📁 Open Photos</a>` : ''}
           </div>
+          ${lead.driveFolderUrl ? `<div class="drive-carousel" id="drive-carousel-${lead.id}" data-drive-carousel="${lead.id}" data-drive-url="${escapeHtml(lead.driveFolderUrl)}"></div>` : ''}
         </div>` : ''}
       </div>`;
   }
@@ -1497,6 +1561,11 @@ function attachCardListeners() {
       e.stopPropagation();
       cancelEditTask(btn.getAttribute('data-task-cancel-edit'));
     });
+  });
+  document.querySelectorAll('[data-drive-carousel]').forEach(el => {
+    const leadId = el.getAttribute('data-drive-carousel');
+    const url = el.getAttribute('data-drive-url');
+    if (url) fetchDrivePhotos(leadId, url);
   });
 }
 
