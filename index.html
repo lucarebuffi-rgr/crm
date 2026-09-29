@@ -228,6 +228,12 @@
     padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036;
     color: #e8ecf1; font-size: 13px;
   }
+  .task-form input[type="date"], .task-form input[type="time"] { color-scheme: dark; }
+  .task-form input[type="date"]::-webkit-calendar-picker-indicator,
+  .task-form input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(70%) sepia(58%) saturate(526%) hue-rotate(357deg) brightness(95%) contrast(93%);
+    cursor: pointer; opacity: 1;
+  }
   .task-form textarea {
     width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036;
     color: #e8ecf1; font-size: 13px; resize: vertical; margin-bottom: 8px;
@@ -1231,30 +1237,16 @@ function renderAgenda() {
     return;
   }
 
-  container.innerHTML = items.map(({ lead, task }) => {
-    const whenLabel = isDormantView
-      ? `<span class="agenda-time" style="color:#ff8b7e;">${formatTaskDate(task.date)}${task.time ? ' · ' + formatTaskTime(task.time) : ''}</span> `
-      : (task.time ? `<span class="agenda-time">${formatTaskTime(task.time)}</span> ` : '');
-    return `
-    <div class="agenda-item ${task.done ? 'is-done' : ''}" data-agenda-jump="${lead.id}">
-      <input type="checkbox" class="agenda-done-cb" ${task.done ? 'checked' : ''} data-agenda-done="${lead.id}" data-task-id="${task.id}" />
-      <div class="agenda-body">
-        <div class="agenda-task-name">${whenLabel}${escapeHtml(task.name)}${lead.acquisitionDirector ? ` <span class="director-badge">👤 ${escapeHtml(lead.acquisitionDirector)}</span>` : ''}</div>
-        <div class="agenda-lead-name">${escapeHtml(lead.firstName)} ${escapeHtml(lead.lastName)} · ${formatPhone(lead.phone)}</div>
-        ${task.notes ? `<div class="agenda-notes">${escapeHtml(task.notes)}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  // Show the normal, clickable lead card for each lead with a qualifying task —
+  // one card per lead even if that lead has more than one task due.
+  const seen = new Set();
+  const agendaLeads = [];
+  items.forEach(({ lead }) => {
+    if (!seen.has(lead.id)) { seen.add(lead.id); agendaLeads.push(lead); }
+  });
 
-  container.querySelectorAll('[data-agenda-done]').forEach(cb => {
-    cb.addEventListener('click', e => e.stopPropagation());
-    cb.addEventListener('change', () => {
-      toggleTaskDone(cb.getAttribute('data-agenda-done'), cb.getAttribute('data-task-id'));
-    });
-  });
-  container.querySelectorAll('[data-agenda-jump]').forEach(row => {
-    row.addEventListener('click', () => jumpToLead(row.getAttribute('data-agenda-jump')));
-  });
+  container.innerHTML = agendaLeads.map(lead => renderCard(lead)).join('');
+  attachCardListeners();
 }
 
 document.getElementById('today-tasks-btn').addEventListener('click', () => {
