@@ -3,9 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="favicon.png">
-  <title>GA Probates — Call List</title>
+<title>GA Probates — Call List</title>
 
 <!-- Firebase (no build step — loaded straight from Google's CDN) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -391,6 +389,20 @@
     </div>
 
     <div id="lead-list"></div>
+  </div>
+</div>
+
+<div id="stage-confirm-overlay" class="modal-overlay" style="z-index:110;">
+  <div class="modal-card" style="max-width:380px;">
+    <div class="modal-header"><h2>Change pipeline stage?</h2></div>
+    <div class="modal-body">
+      <div id="stage-confirm-lead" style="font-weight:700; margin-bottom:8px;"></div>
+      <div id="stage-confirm-text" style="font-size:14px; color:#cddaf0; line-height:1.5;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="stage-confirm-no">Cancel</button>
+      <button class="btn-gold" id="stage-confirm-yes">Yes, move it</button>
+    </div>
   </div>
 </div>
 
@@ -962,6 +974,29 @@ function updateStatus(id, status) {
   logActivity(id, 'status_changed', { newStatus: status });
 }
 
+// Pop-up asking "are you sure?" before a lead moves to a different pipeline stage.
+function confirmStageChange(leadId, newStatusId, onYes, extraNote) {
+  const lead = leads.find(l => l.id === leadId);
+  const from = lead && STATUS_MAP[lead.status] ? STATUS_MAP[lead.status].label : 'its current stage';
+  const to = STATUS_MAP[newStatusId] ? STATUS_MAP[newStatusId].label : newStatusId;
+  document.getElementById('stage-confirm-lead').textContent = lead ? `${lead.firstName} ${lead.lastName}`.trim() : '';
+  document.getElementById('stage-confirm-text').textContent =
+    `You're moving this lead from "${from}" to "${to}". ${extraNote || ''} Are you sure you want to proceed?`;
+  const overlay = document.getElementById('stage-confirm-overlay');
+  const yes = document.getElementById('stage-confirm-yes');
+  const no = document.getElementById('stage-confirm-no');
+  const close = () => { overlay.classList.remove('open'); yes.onclick = null; no.onclick = null; };
+  yes.onclick = () => { close(); onYes(); };
+  no.onclick = close;
+  overlay.classList.add('open');
+}
+
+function requestStatusChange(id, status) {
+  const lead = leads.find(l => l.id === id);
+  if (!lead || lead.status === status) return;
+  confirmStageChange(id, status, () => updateStatus(id, status));
+}
+
 function updateSubStage(id, subStage) {
   leadsRef.doc(id).update({ subStage }).catch(() => showToast('Could not update sub-stage.', 'error'));
 }
@@ -1116,6 +1151,18 @@ async function fetchDriveFolderName(leadId, folderUrl) {
 function logCall(id) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
   const outcome = OUTCOMES.find(o => o.id === draft.outcome);
+  const lead = leads.find(l => l.id === id);
+  const newStatus = outcome ? outcome.status : STATUS_MAP.new.id;
+  if (lead && lead.status !== newStatus) {
+    confirmStageChange(id, newStatus, () => doLogCall(id), `Logging this call ("${outcome ? outcome.label : 'Note'}") will move it. Cancel keeps your note so nothing is lost.`);
+    return;
+  }
+  doLogCall(id);
+}
+
+function doLogCall(id) {
+  const draft = drafts[id] || { outcome: 'no_answer', text: '' };
+  const outcome = OUTCOMES.find(o => o.id === draft.outcome);
   const entry = {
     at: new Date().toISOString(),
     outcome: outcome ? outcome.label : 'Note',
@@ -1135,17 +1182,20 @@ function logCall(id) {
 /* ---------------- Filtering / sorting ---------------- */
 function getFiltered() {
   let list = leads;
+  // The lead that's currently open is never filtered out by stage/director,
+  // so it stays on screen when it moves stages and people can keep working on it.
+  const keepOpen = l => l.id === expandedId;
   if (statusFilter === 'active') {
-    list = list.filter(l => l.status !== 'dead' && l.status !== 'not_interested' && l.status !== 'deal');
+    list = list.filter(l => keepOpen(l) || (l.status !== 'dead' && l.status !== 'not_interested' && l.status !== 'deal'));
   } else if (statusFilter === 'fire') {
-    list = list.filter(l => l.fireLead);
+    list = list.filter(l => keepOpen(l) || l.fireLead);
   } else if (statusFilter !== 'all') {
-    list = list.filter(l => l.status === statusFilter);
+    list = list.filter(l => keepOpen(l) || l.status === statusFilter);
   }
   if (directorFilter === 'unassigned') {
-    list = list.filter(l => !l.acquisitionDirector);
+    list = list.filter(l => keepOpen(l) || !l.acquisitionDirector);
   } else if (directorFilter !== 'all') {
-    list = list.filter(l => l.acquisitionDirector === directorFilter);
+    list = list.filter(l => keepOpen(l) || l.acquisitionDirector === directorFilter);
   }
   if (addedDateFilter) {
     list = list.filter(l => {
@@ -1546,7 +1596,7 @@ function attachCardListeners() {
   document.querySelectorAll('[data-status-step]').forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation();
-      updateStatus(el.getAttribute('data-status-step'), el.getAttribute('data-status-value'));
+      requestStatusChange(el.getAttribute('data-status-step'), el.getAttribute('data-status-value'));
     });
   });
   document.querySelectorAll('[data-substage-step]').forEach(el => {
