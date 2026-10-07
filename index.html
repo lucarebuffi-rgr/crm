@@ -1337,39 +1337,50 @@ function doLogCall(id) {
 }
 
 /* ---------------- Filtering / sorting ---------------- */
+function normPhone(v) {
+  let d = (v || '').toString().replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '1') d = d.slice(1); // ignore leading country code
+  return d;
+}
+
 function getFiltered() {
   let list = leads;
-  // The lead that's currently open is never filtered out by stage/director,
-  // so it stays on screen when it moves stages and people can keep working on it.
-  const keepOpen = l => l.id === expandedId;
-  if (statusFilter === 'active') {
-    list = list.filter(l => keepOpen(l) || (l.status !== 'dead' && l.status !== 'not_interested' && l.status !== 'deal'));
-  } else if (statusFilter === 'fire') {
-    list = list.filter(l => keepOpen(l) || l.fireLead);
-  } else if (statusFilter !== 'all') {
-    list = list.filter(l => keepOpen(l) || l.status === statusFilter);
-  }
-  if (directorFilter === 'unassigned') {
-    list = list.filter(l => keepOpen(l) || !l.acquisitionDirector);
-  } else if (directorFilter !== 'all') {
-    list = list.filter(l => keepOpen(l) || l.acquisitionDirector === directorFilter);
-  }
-  if (addedDateFilter) {
-    list = list.filter(l => {
-      if (!l.addedAt) return false;
-      const d = new Date(l.addedAt);
-      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      return ds === addedDateFilter;
-    });
-  }
   const q = search.trim().toLowerCase();
+
   if (q) {
-    list = list.filter(l =>
-      `${l.firstName} ${l.lastName}`.toLowerCase().includes(q) ||
-      (l.phone || '').includes(q) ||
-      (l.address || '').toLowerCase().includes(q) ||
-      (l.city || '').toLowerCase().includes(q)
-    );
+    // Searching looks through the WHOLE CRM, ignoring the stage / director / date filters.
+    const qDigits = normPhone(q);
+    const phoneLike = /^[\d\s().+\-]+$/.test(q) && qDigits.length >= 4;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    list = list.filter(l => {
+      if (phoneLike && normPhone(l.phone).includes(qDigits)) return true;
+      const hay = `${l.firstName || ''} ${l.lastName || ''} ${l.address || ''} ${l.city || ''} ${l.state || ''} ${l.zip || ''} ${l.phone || ''}`.toLowerCase();
+      return tokens.every(t => hay.includes(t));
+    });
+  } else {
+    // The lead that's currently open is never filtered out by stage/director,
+    // so it stays on screen when it moves stages and people can keep working on it.
+    const keepOpen = l => l.id === expandedId;
+    if (statusFilter === 'active') {
+      list = list.filter(l => keepOpen(l) || (l.status !== 'dead' && l.status !== 'not_interested' && l.status !== 'deal'));
+    } else if (statusFilter === 'fire') {
+      list = list.filter(l => keepOpen(l) || l.fireLead);
+    } else if (statusFilter !== 'all') {
+      list = list.filter(l => keepOpen(l) || l.status === statusFilter);
+    }
+    if (directorFilter === 'unassigned') {
+      list = list.filter(l => keepOpen(l) || !l.acquisitionDirector);
+    } else if (directorFilter !== 'all') {
+      list = list.filter(l => keepOpen(l) || l.acquisitionDirector === directorFilter);
+    }
+    if (addedDateFilter) {
+      list = list.filter(l => {
+        if (!l.addedAt) return false;
+        const d = new Date(l.addedAt);
+        const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return ds === addedDateFilter;
+      });
+    }
   }
   const sorted = [...list];
   if (sortBy === 'newest') sorted.sort((a,b) => new Date(b.addedAt) - new Date(a.addedAt));
