@@ -369,6 +369,7 @@
       <button class="agenda-btn" id="today-tasks-btn">📅 Today's Tasks (<span class="count" id="today-count">0</span>)</button>
       <button class="agenda-btn" id="tomorrow-tasks-btn">📅 Tomorrow's Tasks (<span class="count" id="tomorrow-count">0</span>)</button>
       <button class="agenda-btn" id="dormant-tasks-btn">📅 Dormant Tasks 😴 (<span class="count" id="dormant-count">0</span>)</button>
+      <button class="agenda-btn" id="loose-ends-btn">📅 Loose Ends 🚨 (<span class="count" id="loose-count">0</span>)</button>
     </div>
 
     <div id="agenda-controls" style="display:none; align-items:center; gap:10px; margin-bottom:16px;">
@@ -1430,12 +1431,21 @@ function getDormantTasks() {
   return items;
 }
 
+// Leads flagged with the "❗ No Task" badge: Qualified Leads / Follow Ups with no open task.
+// (The lead you currently have open stays listed even after you give it a task, so it doesn't vanish mid-work.)
+function getNoTaskLeads() {
+  return leads.filter(l => DORMANT_INDICATOR_STAGES.includes(l.status) &&
+    (l.id === expandedId || !(l.tasks || []).some(t => !t.done)));
+}
+
 function renderAgendaToggle() {
   const todayStr = localDateStr(0);
   const tomorrowStr = localDateStr(1);
   document.getElementById('today-count').textContent = getAllTasksFor(todayStr).filter(i => !i.task.done).length;
   document.getElementById('tomorrow-count').textContent = getAllTasksFor(tomorrowStr).filter(i => !i.task.done).length;
   document.getElementById('dormant-count').textContent = getDormantTasks().length;
+  document.getElementById('loose-count').textContent = leads.filter(l => DORMANT_INDICATOR_STAGES.includes(l.status) && !(l.tasks || []).some(t => !t.done)).length;
+  document.getElementById('loose-ends-btn').classList.toggle('active', viewMode === 'looseends');
   document.getElementById('today-tasks-btn').classList.toggle('active', viewMode === 'today');
   document.getElementById('tomorrow-tasks-btn').classList.toggle('active', viewMode === 'tomorrow');
   document.getElementById('dormant-tasks-btn').classList.toggle('active', viewMode === 'dormant');
@@ -1444,7 +1454,10 @@ function renderAgendaToggle() {
 function renderAgenda() {
   const container = document.getElementById('lead-list');
   const isDormantView = viewMode === 'dormant';
-  let items = isDormantView ? getDormantTasks() : getAllTasksFor(viewMode === 'today' ? localDateStr(0) : localDateStr(1));
+  const isLooseView = viewMode === 'looseends';
+  let items = isLooseView ? getNoTaskLeads().map(lead => ({ lead }))
+    : isDormantView ? getDormantTasks()
+    : getAllTasksFor(viewMode === 'today' ? localDateStr(0) : localDateStr(1));
 
   if (agendaDirectorFilter === 'unassigned') {
     items = items.filter(i => !i.lead.acquisitionDirector);
@@ -1453,7 +1466,7 @@ function renderAgenda() {
   }
 
   if (items.length === 0) {
-    const emptyLabel = isDormantView ? 'No dormant tasks — everything is on track.' : `No tasks scheduled for ${viewMode === 'today' ? 'today' : 'tomorrow'}.`;
+    const emptyLabel = isLooseView ? 'No loose ends — every Qualified Lead and Follow Up has a task.' : isDormantView ? 'No dormant tasks — everything is on track.' : `No tasks scheduled for ${viewMode === 'today' ? 'today' : 'tomorrow'}.`;
     container.innerHTML = `<div class="empty-state">${emptyLabel}</div>`;
     return;
   }
@@ -1476,6 +1489,10 @@ document.getElementById('today-tasks-btn').addEventListener('click', () => {
 });
 document.getElementById('tomorrow-tasks-btn').addEventListener('click', () => {
   viewMode = viewMode === 'tomorrow' ? 'leads' : 'tomorrow';
+  render();
+});
+document.getElementById('loose-ends-btn').addEventListener('click', () => {
+  viewMode = viewMode === 'looseends' ? 'leads' : 'looseends';
   render();
 });
 document.getElementById('dormant-tasks-btn').addEventListener('click', () => {
