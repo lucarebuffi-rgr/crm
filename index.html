@@ -307,6 +307,30 @@
     display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid #22385a;
   }
 
+  .offer-btn {
+    background: none; color: #d4a843; border: 1px solid #d4a843; border-radius: 6px; padding: 8px 14px;
+    font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px;
+  }
+  .offers-list { margin: 12px 0; display: flex; flex-direction: column; gap: 6px; }
+  .offer-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px;
+    background: #142640; border: 1px solid #22385a; font-size: 13px; flex-wrap: wrap;
+  }
+  .offer-amount { font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #d4a843; font-size: 14px; }
+  .offer-date { color: #8a97a8; font-size: 12px; }
+  .offer-note { color: #cddaf0; font-size: 12px; flex: 1; min-width: 80px; }
+  .offer-del { background: none; border: none; color: #ff8b7e; font-size: 14px; padding: 2px 4px; margin-left: auto; }
+  .rep-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 12px 0; }
+  .rep-card { background: #0f2036; border: 1px solid #22385a; border-radius: 10px; padding: 10px 12px; }
+  .rep-card .v { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 800; color: #d4a843; }
+  .rep-card .l { font-size: 11px; color: #8a97a8; margin-top: 2px; }
+  .rep-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+  .rep-table th { text-align: left; color: #8a97a8; font-weight: 700; font-size: 11px; padding: 4px 6px; }
+  .rep-table td { padding: 6px; border-top: 1px solid #22385a; }
+  .modal-card .modal-body input[type="date"], .modal-card .modal-body input[type="month"] {
+    width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid #22385a; background: #0f2036; color: #e8ecf1; font-size: 14px;
+  }
+
   .toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     padding: 10px 18px; border-radius: 8px; font-size: 14px; display: flex; align-items: center; gap: 8px;
@@ -328,6 +352,7 @@
       <div class="header-actions">
         <span class="sync-note" id="sync-note"></span>
         <button class="btn-ghost" id="add-lead-btn">+ Add Lead</button>
+        <button class="btn-ghost" id="offers-report-btn">📊 Offers</button>
         <button class="btn-gold" id="upload-btn">
           <span id="upload-icon">⬆</span> <span id="upload-label">Upload Today's List</span>
         </button>
@@ -389,6 +414,39 @@
     </div>
 
     <div id="lead-list"></div>
+  </div>
+</div>
+
+<div id="offer-overlay" class="modal-overlay" style="z-index:105;">
+  <div class="modal-card" style="max-width:380px;">
+    <div class="modal-header">
+      <h2>💰 Submit Offer</h2>
+      <button class="modal-close-btn" id="offer-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="offer-lead-name" style="font-weight:700; margin-bottom:12px;"></div>
+      <div class="modal-field"><label>Offer amount submitted</label><input type="text" inputmode="decimal" id="offer-amount" placeholder="$0" /></div>
+      <div class="modal-field"><label>Date submitted</label><input type="date" id="offer-date" style="color-scheme:dark;" /></div>
+      <div class="modal-field"><label>Note (optional)</label><input type="text" id="offer-note" placeholder="e.g. cash, 14-day close" /></div>
+      <div class="modal-error" id="offer-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="offer-cancel">Cancel</button>
+      <button class="btn-gold" id="offer-save">Save Offer</button>
+    </div>
+  </div>
+</div>
+
+<div id="offers-report-overlay" class="modal-overlay" style="z-index:105;">
+  <div class="modal-card" style="max-width:560px;">
+    <div class="modal-header">
+      <h2>📊 Offers Report</h2>
+      <button class="modal-close-btn" id="offers-report-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field" style="max-width:200px;"><label>Month</label><input type="month" id="offers-report-month" style="color-scheme:dark;" /></div>
+      <div id="offers-report-body"></div>
+    </div>
   </div>
 </div>
 
@@ -970,7 +1028,9 @@ function logActivity(leadId, action, extra) {
 }
 
 function updateStatus(id, status) {
-  leadsRef.doc(id).update({ status, subStage: '' }).catch(() => showToast('Could not update status.', 'error'));
+  const upd = { status, subStage: '' };
+  if (status === 'under_contract') upd.underContractAt = new Date().toISOString();
+  leadsRef.doc(id).update(upd).catch(() => showToast('Could not update status.', 'error'));
   logActivity(id, 'status_changed', { newStatus: status });
 }
 
@@ -996,6 +1056,102 @@ function requestStatusChange(id, status) {
   if (!lead || lead.status === status) return;
   confirmStageChange(id, status, () => updateStatus(id, status));
 }
+
+/* ---------------- Offers tracking ---------------- */
+let offerLeadId = null;
+
+function openOfferModal(leadId) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  offerLeadId = leadId;
+  document.getElementById('offer-lead-name').textContent =
+    `${lead.firstName} ${lead.lastName}`.trim() + (lead.address ? ' — ' + lead.address : '');
+  document.getElementById('offer-amount').value = '';
+  document.getElementById('offer-date').value = localDateStr(0);
+  document.getElementById('offer-note').value = '';
+  document.getElementById('offer-error').textContent = '';
+  document.getElementById('offer-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('offer-amount').focus(), 50);
+}
+
+function closeOfferModal() {
+  document.getElementById('offer-overlay').classList.remove('open');
+  offerLeadId = null;
+}
+
+function saveOffer() {
+  const amount = parseMoney(document.getElementById('offer-amount').value);
+  if (!amount) { document.getElementById('offer-error').textContent = 'Enter the offer amount.'; return; }
+  const lead = leads.find(l => l.id === offerLeadId);
+  if (!lead) return;
+  const offer = {
+    id: makeId(),
+    amount,
+    date: document.getElementById('offer-date').value || localDateStr(0),
+    note: document.getElementById('offer-note').value.trim(),
+    by: lead.acquisitionDirector || '',
+    createdAt: new Date().toISOString(),
+  };
+  leadsRef.doc(lead.id).update({ offers: [...(lead.offers || []), offer] })
+    .then(() => showToast('Offer saved.', 'success'))
+    .catch(() => showToast('Could not save that offer.', 'error'));
+  logActivity(lead.id, 'offer_submitted', { amount });
+  closeOfferModal();
+}
+
+function deleteOffer(leadId, offerId) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead || !confirm('Delete this offer record?')) return;
+  leadsRef.doc(leadId).update({ offers: (lead.offers || []).filter(o => o.id !== offerId) })
+    .catch(() => showToast('Could not delete that offer.', 'error'));
+}
+
+function renderOffersReport() {
+  const month = document.getElementById('offers-report-month').value; // YYYY-MM
+  const rows = [];
+  leads.forEach(l => (l.offers || []).forEach(o => {
+    if ((o.date || '').startsWith(month)) rows.push({ lead: l, offer: o });
+  }));
+  rows.sort((a, b) => b.offer.date.localeCompare(a.offer.date));
+  const total = rows.reduce((s, r) => s + Number(r.offer.amount || 0), 0);
+  const leadsOffered = new Set(rows.map(r => r.lead.id)).size;
+  const contracts = leads.filter(l => l.underContractAt && l.underContractAt.slice(0, 7) === month).length;
+  const byDir = {};
+  rows.forEach(r => { const d = r.lead.acquisitionDirector || 'Unassigned'; byDir[d] = (byDir[d] || 0) + 1; });
+
+  const card = (v, l) => `<div class="rep-card"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  let html = `<div class="rep-grid">
+    ${card(rows.length, 'Offers submitted')}
+    ${card(leadsOffered, 'Leads offered on')}
+    ${card(contracts, 'Moved to Under Contract')}
+    ${card('$' + total.toLocaleString(), 'Total offered')}
+    ${card(rows.length ? '$' + Math.round(total / rows.length).toLocaleString() : '$0', 'Average offer')}
+  </div>`;
+  if (Object.keys(byDir).length) {
+    html += `<div style="font-size:12px; color:#8a97a8; margin-bottom:6px;">By director: ${Object.entries(byDir).map(([d, n]) => `${escapeHtml(d)} <b style="color:#e8ecf1">${n}</b>`).join(' · ')}</div>`;
+  }
+  html += rows.length ? `<table class="rep-table"><tr><th>Date</th><th>Lead</th><th>Offer</th><th>Director</th></tr>${rows.map(r => `
+    <tr><td>${formatTaskDate(r.offer.date)}</td><td>${escapeHtml(r.lead.firstName)} ${escapeHtml(r.lead.lastName)}<div style="color:#8a97a8;font-size:11px;">${escapeHtml(r.lead.address || '')}</div></td>
+    <td class="mono" style="color:#d4a843;font-weight:700;">$${Number(r.offer.amount).toLocaleString()}</td><td>${escapeHtml(r.offer.by || r.lead.acquisitionDirector || '—')}</td></tr>`).join('')}</table>`
+    : `<div class="empty-state" style="padding:24px;">No offers recorded this month yet.</div>`;
+  html += `<div style="font-size:11px;color:#8a97a8;margin-top:10px;">"Moved to Under Contract" counts leads moved to that stage from now on (older moves weren't date-stamped).</div>`;
+  document.getElementById('offers-report-body').innerHTML = html;
+}
+
+document.getElementById('offer-close').addEventListener('click', closeOfferModal);
+document.getElementById('offer-cancel').addEventListener('click', closeOfferModal);
+document.getElementById('offer-save').addEventListener('click', saveOffer);
+document.getElementById('offer-overlay').addEventListener('click', e => { if (e.target.id === 'offer-overlay') closeOfferModal(); });
+document.getElementById('offers-report-btn').addEventListener('click', () => {
+  document.getElementById('offers-report-month').value = localDateStr(0).slice(0, 7);
+  renderOffersReport();
+  document.getElementById('offers-report-overlay').classList.add('open');
+});
+document.getElementById('offers-report-month').addEventListener('change', renderOffersReport);
+document.getElementById('offers-report-close').addEventListener('click', () => document.getElementById('offers-report-overlay').classList.remove('open'));
+document.getElementById('offers-report-overlay').addEventListener('click', e => {
+  if (e.target.id === 'offers-report-overlay') e.target.classList.remove('open');
+});
 
 function updateSubStage(id, subStage) {
   leadsRef.doc(id).update({ subStage }).catch(() => showToast('Could not update sub-stage.', 'error'));
@@ -1067,6 +1223,7 @@ async function deleteSelected() {
 }
 
 /* ---------------- Photos (Google Drive link) ---------------- */
+const OFFER_STAGES = ['callback', 'followup']; // stages that show the Submit Offer button
 const PHOTO_STAGES = ['callback', 'followup', 'under_contract', 'deal'];
 const driveCache = {}; // folderId -> { status: 'done'|'error', files: [...] } — avoids re-fetching the same folder repeatedly
 
@@ -1460,6 +1617,7 @@ function renderCard(lead) {
         <textarea class="note-input" rows="2" placeholder="What happened on the call? (optional)" data-note-input="${lead.id}">${escapeHtml(draft.text)}</textarea>
         <div class="detail-actions">
           <button class="log-call-btn" data-log-call="${lead.id}">+ Log Call</button>
+          ${OFFER_STAGES.includes(lead.status) ? `<button class="offer-btn" data-submit-offer="${lead.id}">💰 Submit Offer</button>` : ''}
           <button class="delete-lead-btn" data-delete-lead="${lead.id}">Delete Lead</button>
         </div>
         ${notes.length ? `<div class="notes-list">${notes.slice().reverse().map(n => {
@@ -1475,6 +1633,18 @@ function renderCard(lead) {
             ${(n.text && isNoteOpen) ? `<div class="note-text">${escapeHtml(n.text)}</div>` : ''}
           </div>`;
         }).join('')}</div>` : ''}
+
+        ${(lead.offers && lead.offers.length) ? `
+        <div style="border-top:1px solid #22385a; padding-top:12px; margin-top:4px;">
+          <div style="font-size:12px; color:#8a97a8; font-weight:700;">OFFERS SUBMITTED (${lead.offers.length})</div>
+          <div class="offers-list">${lead.offers.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).map(o => `
+            <div class="offer-row">
+              <span class="offer-amount">$${Number(o.amount||0).toLocaleString()}</span>
+              <span class="offer-date">${formatTaskDate(o.date)}${o.by ? ' · ' + escapeHtml(o.by) : ''}</span>
+              ${o.note ? `<span class="offer-note">${escapeHtml(o.note)}</span>` : ''}
+              <button class="offer-del" data-offer-del="${lead.id}" data-offer-id="${o.id}" title="Delete offer">✕</button>
+            </div>`).join('')}</div>
+        </div>` : ''}
 
         <div class="task-form">
           <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">TASKS</div>
@@ -1647,6 +1817,15 @@ function attachCardListeners() {
   });
   document.querySelectorAll('[data-log-call]').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); logCall(btn.getAttribute('data-log-call')); });
+  });
+  document.querySelectorAll('[data-submit-offer]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); openOfferModal(btn.getAttribute('data-submit-offer')); });
+  });
+  document.querySelectorAll('[data-offer-del]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteOffer(btn.getAttribute('data-offer-del'), btn.getAttribute('data-offer-id'));
+    });
   });
   document.querySelectorAll('[data-delete-lead]').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); deleteLead(btn.getAttribute('data-delete-lead')); });
