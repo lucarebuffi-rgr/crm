@@ -426,7 +426,8 @@
   /* ===== Mobile (small screens only — desktop untouched) ===== */
   @media (max-width: 640px) {
     body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-    .header { padding: 14px 14px 0; }
+    .header { padding: 14px 14px 0; transition: transform .25s ease, opacity .25s ease; }
+    .header.header-hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
     .header-inner h1 { font-size: 20px; }
     .content { padding: 14px 12px calc(60px + env(safe-area-inset-bottom)); }
     /* iOS zooms on inputs under 16px — keep it at 16 */
@@ -2600,7 +2601,27 @@ function renderSop() {
     renderSop();
   }
 })();
+</script>
 
+<script>
+(function initMobileHeaderFade() {
+  let lastY = 0;
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      if (window.innerWidth > 640) return;
+      const header = document.querySelector('.header');
+      if (!header) return;
+      const y = window.scrollY;
+      if (y > 120 && y > lastY + 4) header.classList.add('header-hidden');
+      else if (y <= 120) header.classList.remove('header-hidden');
+      lastY = y;
+    });
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
