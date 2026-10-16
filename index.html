@@ -2420,9 +2420,10 @@ async function pDialerDispo(outcomeId) {
 // ---- SMS sheet ----
 let pSmsLeadId = null;
 function pSmsTemplate(kind, lead) {
-  const name = (lead.firstName || '').trim() || 'there';
+  const firstName = (lead.firstName || '').trim();
+  const name = firstName || 'there';
   const addr = lead.address || 'the property';
-  if (kind === 'intro') return `Hi ${name}, this is Luca — I just tried reaching you about ${addr}. I buy houses in the area and wanted to see if you'd consider an offer. Worth a quick chat?`;
+  if (kind === 'intro') return `This is Luca... I'm looking to speak with the owner of ${addr}.` + (firstName ? `\n${firstName}?` : '');
   if (kind === 'day2')  return `Hey ${name}, Luca here again. Just wanted to make sure you saw my last text?`;
   if (kind === 'day4')  return `Hi ${name}, not trying to bother you.. simply wanted to see if you were looking to sell ${addr}?`;
   if (kind === 'day7')  return `Hopefully I haven't done anything to upset you ${name}, and that's why you ignored me.. anyways, if you ever end up selling ${addr}, please call me.`;
