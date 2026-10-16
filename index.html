@@ -337,6 +337,60 @@
     z-index: 50; max-width: 90vw; border: 1px solid #d4a843; background: #16263d;
   }
   .toast.error { border-color: #d9534f; background: #3a1e1e; }
+  /* ---------- Probate Dialer ---------- */
+  .pdialer { position: fixed; inset: 0; z-index: 200; background: #0d1b2e; display: none; flex-direction: column; overflow-y: auto; padding: 16px; }
+  .pdialer.open { display: flex; }
+  .pdialer-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; max-width: 560px; width: 100%; margin: 0 auto 10px; }
+  .pdialer-progress { font-size: 13px; color: #8a97a8; font-weight: 600; }
+  .pdialer-kpi { font-size: 13px; color: #d4a843; font-weight: 700; }
+  .pdialer-card-wrap { display: flex; align-items: stretch; gap: 8px; max-width: 560px; width: 100%; margin: 0 auto; }
+  .pdialer-side-btn { background: #142640; border: 1px solid #22385a; color: #9fb3cc; border-radius: 12px; font-size: 28px; padding: 0 14px; cursor: pointer; }
+  .pdialer-side-btn:active { transform: scale(.94); }
+  .pdialer-card { flex: 1; background: #10233d; border: 1px solid #22385a; border-radius: 16px; padding: 20px; }
+  .pdialer-name { font-size: 22px; font-weight: 800; color: #e9edf3; margin-bottom: 8px; }
+  .pdialer-addr-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .pdialer-addr { font-size: 16px; font-weight: 700; color: #e9edf3; }
+  .pdialer-city { color: #8a97a8; font-size: 13px; padding-left: 22px; }
+  .pmap-btns { display: flex; gap: 8px; flex-shrink: 0; }
+  .pmap-btn { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+  .pmap-btn.zillow { background: #0f6fff; border-color: #0f6fff; }
+  .pmap-btn.gmaps { background: #e0483a; border-color: #e0483a; }
+  .pmap-btn:active { transform: scale(.94); }
+  .pdialer-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pdialer-attempts { font-size: 12px; color: #8a97a8; }
+  .pcad-tracker { background: #0b1626; border: 1px solid #22385a; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .pcad-head { font-size: 12px; color: #8a97a8; margin-bottom: 6px; }
+  .pcad-now { font-size: 14px; font-weight: 700; color: #e9c874; margin-bottom: 2px; }
+  .pcad-hint { font-size: 12px; color: #8a97a8; margin-bottom: 8px; }
+  .pcad-dots { display: flex; gap: 6px; }
+  .pdot { width: 28px; height: 28px; border-radius: 50%; background: #142640; border: 1px solid #22385a; color: #8a97a8; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .pdot.done { background: #1d3a24; border-color: #4caf82; color: #4caf82; }
+  .pdot.now { background: #d4a843; border-color: #d4a843; color: #0d1b2e; }
+  .pdial-call { display: block; text-align: center; background: linear-gradient(180deg,#e3b95c,#c9992f); color: #0d1b2e; font-size: 22px; font-weight: 800; border-radius: 14px; padding: 16px; margin-bottom: 10px; }
+  .pdial-text { display: block; width: 100%; background: #142640; border: 1px solid #22385a; color: #e9edf3; font-size: 16px; font-weight: 700; border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; }
+  .pdialer-notes { width: 100%; min-height: 64px; background: #0b1626; border: 1px solid #22385a; border-radius: 10px; color: #e9edf3; font-size: 14px; padding: 10px 12px; margin-bottom: 10px; resize: vertical; box-sizing: border-box; }
+  .pdialer-dispos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pdispo-btn { background: #142640; border: 1px solid #22385a; color: #e9edf3; border-radius: 12px; padding: 14px 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .pdispo-btn:active { transform: scale(.96); }
+  .pdialer-empty { text-align: center; color: #8a97a8; padding: 30px 10px; font-size: 14px; line-height: 1.6; }
+  .pdialer-nophone { text-align: center; color: #8a97a8; padding: 14px; font-size: 14px; }
+  .pdialer-sop { max-width: 560px; width: 100%; margin: 12px auto 0; background: #10233d; border: 1px solid #22385a; border-radius: 12px; padding: 10px 14px; font-size: 13px; color: #9fb3cc; }
+  .pdialer-sop summary { cursor: pointer; font-weight: 700; color: #d4a843; }
+  .pdialer-sop-body { margin-top: 8px; line-height: 1.7; }
+  /* SMS sheet */
+  .psms-sheet { position: fixed; inset: 0; z-index: 300; display: none; }
+  .psms-sheet.open { display: block; }
+  .psms-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+  .psms-panel { position: absolute; left: 0; right: 0; bottom: 0; background: #10233d; border-top: 1px solid #22385a; border-radius: 18px 18px 0 0; padding: 18px; max-width: 560px; margin: 0 auto; }
+  .psms-panel h3 { margin: 0 0 8px; color: #e9edf3; font-size: 17px; }
+  .psms-to { font-size: 13px; color: #8a97a8; margin-bottom: 10px; }
+  .psms-templates { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .psms-tpl { background: #142640; border: 1px solid #22385a; color: #e9edf3; border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .psms-tpl:active { transform: scale(.95); }
+  #psms-text { width: 100%; min-height: 90px; background: #0b1626; border: 1px solid #22385a; border-radius: 10px; color: #e9edf3; font-size: 15px; padding: 10px 12px; resize: vertical; box-sizing: border-box; margin-bottom: 10px; }
+  .psms-foot { display: flex; justify-content: flex-end; }
+  .psms-foot > div { display: flex; gap: 8px; }
+
 </style>
 </head>
 <body>
@@ -351,6 +405,7 @@
       </div>
       <div class="header-actions">
         <span class="sync-note" id="sync-note"></span>
+        <button class="btn-gold" onclick="pOpenDialer()">📞 Dialer</button>
         <button class="btn-ghost" id="add-lead-btn">+ Add Lead</button>
         <button class="btn-ghost" id="offers-report-btn">📊 Offers</button>
         <button class="btn-gold" id="upload-btn">
@@ -1962,6 +2017,360 @@ document.getElementById('select-all-checkbox').addEventListener('change', e => {
   render();
 });
 document.getElementById('delete-selected-btn').addEventListener('click', deleteSelected);
+</script>
+<script>
+/* ================= GA PROBATES DIALER (2026-10-16) =================
+   Mirrors the GA Stacked & Zombies dialer: full-screen queue, 6 dispositions,
+   same 10-touch cadence, SMS sheet + Quo send, KPI tracker, Zillow/Maps.
+   Queue = leads with status 'new' or 'trying' that have a phone number.
+   New leads always first. No sign-in needed (open CRM).
+   Writes to the same lead fields as logCall: status, notes, callAttempts,
+   lastCalledAt (+ cadenceStep, cycleStartDate for the cadence engine).
+======================================================================== */
+
+// ---- Quo helpers (proxy is open-access; no auth needed) ----
+const P_QUO_PROXY_URL = 'https://script.google.com/macros/s/AKfycbw4TyScLuANH0OHOceEoWd1K4yaku98qBCkzvXRj49sSR1jM8u3DevLoPWeO3BamS8l/exec';
+function pEnsureQuoContact(name, phone, company) {
+  try {
+    const digits = digitsOnly(phone || '');
+    if (!digits) return;
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    const body = {
+      action: 'createContact',
+      firstName: parts[0] || 'Seller',
+      lastName: parts.slice(1).join(' '),
+      phone: digits,
+    };
+    if (company) body.company = company;
+    fetch(P_QUO_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+    }).catch(() => {});
+  } catch (e) { /* silent */ }
+}
+async function pSendSmsViaQuo(phone, message) {
+  const digits = digitsOnly(phone || '');
+  if (!digits) throw new Error('No phone number on this lead');
+  if (!message || !message.trim()) throw new Error('Message is empty');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45000);
+  let res;
+  try {
+    res = await fetch(P_QUO_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'sendSms', to: digits, content: message.trim() }),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new Error(e && e.name === 'AbortError' ? 'Quo proxy timed out' : 'Quo proxy unreachable');
+  } finally { clearTimeout(timer); }
+  if (!res.ok) throw new Error('Quo SMS failed (HTTP ' + res.status + ')');
+  const data = await res.json().catch(() => ({}));
+  if (data && data.ok === false) throw new Error('Quo SMS failed: ' + (data.error || 'proxy error'));
+  return data;
+}
+
+// ---- Cadence: same 10-touch / 7-day cycle as the Stacked dialer ----
+const P_CADENCE_STEPS = [
+  { step: 0, day: 1, dayOffset: 0, short: 'Ghost Call AM',       label: 'Day 1 — Ghost Call — AM',               type: 'call',     hint: 'Just one call; no VM, no SMS' },
+  { step: 1, day: 1, dayOffset: 0, short: 'Double Dial+LVM+SMS',  label: 'Day 1 — Double Dial + LVM + SMS intro',  type: 'call_sms', hint: 'Two rapid calls, leave voicemail, send intro SMS' },
+  { step: 2, day: 1, dayOffset: 0, short: 'Call PM + LVM',        label: 'Day 1 PM — Call + LVM',                type: 'call',     hint: 'Call in the afternoon, leave voicemail' },
+  { step: 3, day: 2, dayOffset: 1, short: 'SMS',                 label: 'Day 2 — SMS',                          type: 'sms',      hint: 'Send follow-up text' },
+  { step: 4, day: 3, dayOffset: 2, short: 'Ghost Call',          label: 'Day 3 — Ghost Call',                   type: 'call',     hint: 'Call, no voicemail if no answer' },
+  { step: 5, day: 4, dayOffset: 3, short: 'Call AM/PM + LVM',    label: 'Day 4 — Call AM/PM + LVM',             type: 'call',     hint: 'Call morning and afternoon, leave voicemail' },
+  { step: 6, day: 6, dayOffset: 5, short: 'SMS',                 label: 'Day 6 — SMS',                          type: 'sms',      hint: 'Send follow-up text' },
+  { step: 7, day: 7, dayOffset: 6, short: 'Call AM + LVM',       label: 'Day 7 AM — Call + LVM',                type: 'call',     hint: 'Call in the morning, leave voicemail' },
+  { step: 8, day: 7, dayOffset: 6, short: 'Call PM',             label: 'Day 7 PM — Call',                      type: 'call',     hint: 'Call in the afternoon' },
+];
+function pGetCadence(lead) {
+  const step = (lead.cadenceStep != null ? lead.cadenceStep : 0);
+  return { step, stepDef: P_CADENCE_STEPS[step] || P_CADENCE_STEPS[0] };
+}
+function pCadenceTrackerHTML(lead) {
+  const { step, stepDef } = pGetCadence(lead);
+  const total = P_CADENCE_STEPS.length;
+  const attempts = lead.callAttempts || 0;
+  const dots = P_CADENCE_STEPS.map((s, i) => {
+    const cls = i < step ? 'done' : (i === step ? 'now' : '');
+    return `<div class="pdot ${cls}" title="${escapeHtml(s.label)}">${i < step ? '✓' : (i + 1)}</div>`;
+  }).join('');
+  return `<div class="pcad-tracker">
+    <div class="pcad-head">Touch <b>${step + 1}</b> of ${total} · ${attempts} call${attempts === 1 ? '' : 's'}</div>
+    <div class="pcad-now">👉 ${escapeHtml(stepDef.label)}</div>
+    <div class="pcad-hint">${escapeHtml(stepDef.hint)}</div>
+    <div class="pcad-dots">${dots}</div>
+  </div>`;
+}
+
+// ---- Dialer dispositions (6 buttons) ----
+const P_DIALER_OUTCOMES = [
+  { id: 'no_answer',          label: 'No Answer',           status: 'trying',         icon: '📵' },
+  { id: 'qualified',           label: '💬 Qualified',        status: 'callback',       icon: '', noteRequired: true },
+  { id: 'followup_scheduled',  label: '📅 Follow Up Scheduled', status: 'followup',    icon: '', noteRequired: true },
+  { id: 'not_interested',      label: 'Not Interested',      status: 'not_interested', icon: '🚫' },
+  { id: 'bad_number',          label: 'Bad Number',          status: 'dead',           icon: '⛔' },
+  { id: 'dead_lead',           label: '☠️ Dead Lead',        status: 'dead',           icon: '' },
+];
+
+// ---- Dialer state ----
+const pDialer = { active: false, queue: [], idx: 0, stats: { called: 0, qualified: 0 } };
+
+function pBuildQueue() {
+  const q = leads.filter(l =>
+    (l.status === 'new' || l.status === 'trying') && digitsOnly(l.phone || '').length >= 10
+  );
+  const rank = l => (l.status === 'new' ? 0 : 1);
+  q.sort((a, b) => {
+    const r = rank(a) - rank(b);
+    if (r) return r;
+    const ta = a.status === 'new' ? (a.addedAt || '') : (a.lastCalledAt || '');
+    const tb = b.status === 'new' ? (b.addedAt || '') : (b.lastCalledAt || '');
+    return ta < tb ? -1 : (ta > tb ? 1 : 0);
+  });
+  return q;
+}
+
+function pInitDialerDOM() {
+  if (document.getElementById('pdialer')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+  <div id="pdialer" class="pdialer">
+    <div class="pdialer-top">
+      <button class="btn-ghost" onclick="pDialerExit()">✕ Exit</button>
+      <div class="pdialer-progress" id="pdialer-progress"></div>
+      <div class="pdialer-kpi" id="pdialer-kpi"></div>
+    </div>
+    <div class="pdialer-card-wrap">
+      <button class="pdialer-side-btn" onclick="pDialerPrev()" title="Previous">‹</button>
+      <div class="pdialer-card" id="pdialer-card"></div>
+      <button class="pdialer-side-btn" onclick="pDialerNext()" title="Next">›</button>
+    </div>
+    <details class="pdialer-sop">
+      <summary>📋 Dialer SOP</summary>
+      <div class="pdialer-sop-body">
+        Work the queue top-down — New leads first, then Trying to Reach.<br>
+        Tap the number to call (saves the contact to Quo automatically).<br>
+        Pick a disposition after every call. Notes are <b>required</b> for Qualified and Follow Up Scheduled.<br>
+        Follow the cadence step shown on each card (10 touches over 7 days, then it restarts).<br>
+        ☠️ Dead Lead removes the lead from the dialer immediately.
+      </div>
+    </details>
+  </div>
+  <div id="psms-sheet" class="psms-sheet">
+    <div class="psms-backdrop" onclick="pCloseSmsSheet()"></div>
+    <div class="psms-panel">
+      <h3>💬 Send SMS</h3>
+      <div class="psms-to">To: <span id="psms-phone">—</span></div>
+      <div class="psms-templates" id="psms-template-btns"></div>
+      <textarea id="psms-text" placeholder="Type your message…"></textarea>
+      <div class="psms-foot">
+        <div>
+          <button class="btn-ghost" onclick="pCloseSmsSheet()">Cancel</button>
+          <button class="btn-gold" id="psms-send-btn" onclick="pSendSms()">➤ Send SMS</button>
+        </div>
+      </div>
+    </div>
+  </div>`);
+}
+
+function pOpenDialer() {
+  pInitDialerDOM();
+  pDialer.queue = pBuildQueue();
+  pDialer.idx = 0;
+  pDialer.stats = { called: 0, qualified: 0 };
+  if (!pDialer.queue.length) {
+    showToast('No callable leads — queue pulls New + Trying To Reach with a phone number');
+    return;
+  }
+  pDialer.active = true;
+  document.getElementById('pdialer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  pRenderDialerCard();
+}
+function pDialerExit() {
+  pDialer.active = false;
+  document.getElementById('pdialer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function pDialerPrev() {
+  if (!pDialer.queue.length) return;
+  pDialer.idx = (pDialer.idx - 1 + pDialer.queue.length) % pDialer.queue.length;
+  pRenderDialerCard();
+}
+function pDialerNext() {
+  if (!pDialer.queue.length) return;
+  pDialer.idx = (pDialer.idx + 1) % pDialer.queue.length;
+  pRenderDialerCard();
+}
+function pKpiHTML() {
+  const { called, qualified } = pDialer.stats;
+  const conv = called ? Math.round((qualified / called) * 100) : 0;
+  return `📞 ${called} called · 💬 ${qualified} qualified · ${conv}%`;
+}
+function pLeadName(l) {
+  const n = [l.firstName, l.lastName].filter(Boolean).join(' ').trim();
+  return n || l.address || 'Unknown';
+}
+function pMapButtonsHTML(l) {
+  const addr = encodeURIComponent(fullAddressStr(l));
+  return `<div class="pmap-btns">
+    <a class="pmap-btn zillow" href="https://www.zillow.com/homes/${addr}_rb/" target="_blank" rel="noopener" title="View on Zillow" onclick="event.stopPropagation()">
+      <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/><path d="M8.3 14.6h6.9l-6.4 3.5h6.4" stroke="#0f6fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <a class="pmap-btn gmaps" href="https://www.google.com/maps/place/${addr}" target="_blank" rel="noopener" title="Google Maps / Street View" onclick="event.stopPropagation()">
+      <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.6 6.6 11.7 7.1 12.16a.6.6 0 0 0 .8 0c.5-.46 7.1-6.56 7.1-12.16C19.5 5.36 16.14 2 12 2z" fill="#ffffff"/><circle cx="12" cy="9.5" r="3" fill="#e0483a"/></svg>
+    </a>
+  </div>`;
+}
+
+function pRenderDialerCard() {
+  const card = document.getElementById('pdialer-card');
+  document.getElementById('pdialer-kpi').innerHTML = pKpiHTML();
+  const total = pDialer.queue.length;
+  if (!total) {
+    document.getElementById('pdialer-progress').textContent = 'Queue empty';
+    card.innerHTML = `<div class="pdialer-empty">Queue's clear — no New or Trying To Reach leads with phone numbers.<br><br><button class="btn-gold" onclick="pDialerExit()">Done</button></div>`;
+    return;
+  }
+  const lead = pDialer.queue[pDialer.idx];
+  const st = STATUS_MAP[lead.status] || STATUS_MAP.new;
+  const name = pLeadName(lead);
+  const phone = lead.phone || '';
+  const digits = digitsOnly(phone);
+  const addr = fullAddressStr(lead);
+  const { stepDef } = pGetCadence(lead);
+  document.getElementById('pdialer-progress').textContent = `${lead.status === 'new' ? '🆕 New' : '📞 Trying'} · ${pDialer.idx + 1} of ${total}`;
+  card.innerHTML = `
+    <div class="pdialer-name">${escapeHtml(name)}</div>
+    <div class="pdialer-addr-row">
+      <div>
+        <div class="pdialer-addr">📍 ${escapeHtml(lead.address || '—')}</div>
+        <div class="pdialer-city">${escapeHtml([lead.city, lead.state].filter(Boolean).join(', '))} ${escapeHtml(lead.zip || '')}</div>
+      </div>
+      ${pMapButtonsHTML(lead)}
+    </div>
+    <div class="pdialer-badges">
+      <span class="status-badge" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}55">${st.label}</span>
+      <span class="pdialer-attempts">${lead.callAttempts || 0} call${(lead.callAttempts || 0) === 1 ? '' : 's'}${lead.lastCalledAt ? ' · last ' + timeAgo(lead.lastCalledAt) : ''}</span>
+    </div>
+    ${pCadenceTrackerHTML(lead)}
+    ${phone ? `
+      <a class="pdial-call" href="tel:${digits}" onclick="pEnsureQuoContact('${escapeHtml(name).replace(/'/g, "\\'")}', '${digits}', '${escapeHtml(addr).replace(/'/g, "\\'")}')">📞 ${escapeHtml(formatPhone(phone))}</a>
+      <button class="pdial-text" onclick="pOpenSmsSheet('${lead.id}', ${stepDef.type === 'sms' || stepDef.type === 'call_sms' ? "'intro'" : 'null'})">💬 Text</button>
+    ` : '<div class="pdialer-nophone">No phone on file</div>'}
+    <textarea id="pdialer-notes" class="pdialer-notes" placeholder="Call notes… (required for Qualified / Follow Up Scheduled)"></textarea>
+    <div class="pdialer-dispos">
+      ${P_DIALER_OUTCOMES.map(o => `<button class="pdispo-btn" onclick="pDialerDispo('${o.id}')">${o.icon ? o.icon + ' ' : ''}${o.label}</button>`).join('')}
+    </div>`;
+}
+
+async function pDialerDispo(outcomeId) {
+  const oc = P_DIALER_OUTCOMES.find(o => o.id === outcomeId);
+  const lead = pDialer.queue[pDialer.idx];
+  if (!lead || !oc) return;
+  const noteText = (document.getElementById('pdialer-notes').value || '').trim();
+  if (oc.noteRequired && !noteText) {
+    showToast('Write a note first', 'error');
+    document.getElementById('pdialer-notes').focus();
+    return;
+  }
+  if (oc.id === 'dead_lead' && !confirm('Move this lead to Dead? It will leave the dialer queue.')) return;
+  const at = new Date().toISOString();
+  const curStep = lead.cadenceStep || 0;
+  let newStep = curStep + 1;
+  let cycleStart = lead.cycleStartDate || at;
+  if (newStep >= P_CADENCE_STEPS.length) { newStep = 0; cycleStart = at; }
+  const entry = { at, outcome: oc.label.replace(/^[^\x00-\x7F]+\s*/, '').trim(), text: noteText };
+  // optimistic local update so the queue rebuilds instantly
+  lead.status = oc.status;
+  lead.lastCalledAt = at;
+  lead.callAttempts = (lead.callAttempts || 0) + 1;
+  lead.cadenceStep = newStep;
+  lead.cycleStartDate = cycleStart;
+  try {
+    await leadsRef.doc(lead.id).update({
+      callAttempts: firebase.firestore.FieldValue.increment(1),
+      lastCalledAt: at,
+      status: oc.status,
+      notes: firebase.firestore.FieldValue.arrayUnion(entry),
+      cadenceStep: newStep,
+      cycleStartDate: cycleStart,
+    });
+  } catch (e) { showToast('Could not save disposition', 'error'); return; }
+  pDialer.stats.called++;
+  if (oc.id === 'qualified') pDialer.stats.qualified++;
+  logActivity(lead.id, 'dialer_dispo', { outcome: entry.outcome });
+  // rebuild queue; the lead stays only if still new/trying
+  pDialer.queue = pBuildQueue();
+  if (pDialer.idx >= pDialer.queue.length) pDialer.idx = 0;
+  pRenderDialerCard();
+}
+
+// ---- SMS sheet ----
+let pSmsLeadId = null;
+function pSmsTemplate(kind, lead) {
+  const name = (lead.firstName || '').trim() || 'there';
+  const addr = lead.address || 'the property';
+  if (kind === 'intro') return `Hi ${name}, this is Luca — I just tried reaching you about ${addr}. I buy houses in the area and wanted to see if you'd consider an offer. Worth a quick chat?`;
+  if (kind === 'day2')  return `Hi ${name}, this is Luca — I tried reaching you about ${addr}. I buy houses in the area and wanted to see if you'd consider an offer. Worth a quick chat?`;
+  if (kind === 'day6')  return `Hi ${name}, Luca again — following up on ${addr}. Still interested in hearing a cash offer? No pressure either way.`;
+  return '';
+}
+function pOpenSmsSheet(leadId, prefill) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  pSmsLeadId = leadId;
+  document.getElementById('psms-phone').textContent = (lead.firstName ? lead.firstName + ' · ' : '') + formatPhone(lead.phone || '');
+  document.getElementById('psms-template-btns').innerHTML = [
+    ['intro', 'Intro'], ['day2', 'Day 2'], ['day6', 'Day 6'],
+  ].map(([k, l]) => `<button class="psms-tpl" onclick="pSmsUseTemplate('${k}')">${l}</button>`).join('') +
+    `<button class="psms-tpl" onclick="pSmsUseTemplate('custom')">Custom</button>`;
+  const ta = document.getElementById('psms-text');
+  ta.value = prefill ? pSmsTemplate(prefill, lead) : '';
+  document.getElementById('psms-sheet').classList.add('open');
+}
+function pCloseSmsSheet() {
+  document.getElementById('psms-sheet').classList.remove('open');
+  pSmsLeadId = null;
+}
+function pSmsUseTemplate(kind) {
+  const lead = leads.find(l => l.id === pSmsLeadId);
+  const ta = document.getElementById('psms-text');
+  if (kind === 'custom') { ta.value = ''; ta.focus(); }
+  else if (lead) ta.value = pSmsTemplate(kind, lead);
+}
+async function pSendSms() {
+  const lead = leads.find(l => l.id === pSmsLeadId);
+  const text = (document.getElementById('psms-text').value || '').trim();
+  if (!lead || !text) { showToast('Enter a message first', 'error'); return; }
+  const btn = document.getElementById('psms-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await pSendSmsViaQuo(lead.phone, text);
+    const at = new Date().toISOString();
+    const entry = { at, outcome: 'SMS sent', text: text.slice(0, 200) };
+    const curStep = lead.cadenceStep || 0;
+    let newStep = curStep + 1;
+    if (newStep >= P_CADENCE_STEPS.length) newStep = 0;
+    lead.lastCalledAt = at; lead.cadenceStep = newStep;
+    lead.notes = (lead.notes || []).concat([entry]);
+    await leadsRef.doc(lead.id).update({
+      lastCalledAt: at,
+      notes: firebase.firestore.FieldValue.arrayUnion(entry),
+      cadenceStep: newStep,
+    });
+    logActivity(lead.id, 'sms_sent', { text: text.slice(0, 120) });
+    showToast('SMS sent ✓');
+    pCloseSmsSheet();
+    pRenderDialerCard();
+  } catch (e) {
+    showToast(e.message || 'SMS failed', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '➤ Send SMS';
+  }
+}
+
 </script>
 </body>
 </html>
