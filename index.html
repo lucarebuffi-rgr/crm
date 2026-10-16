@@ -6,6 +6,7 @@
 <title>GA Probates — Call List</title>
 
 <!-- Firebase (no build step — loaded straight from Google's CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
@@ -391,6 +392,32 @@
   .psms-foot { display: flex; justify-content: flex-end; }
   .psms-foot > div { display: flex; gap: 8px; }
 
+
+  /* ---------- Header icon buttons ---------- */
+  .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; font-size:18px; }
+  /* ---------- SOP page ---------- */
+  .sop-wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 60px; }
+  .sop-wrap h1 { color: #e9edf3; font-size: 28px; margin-bottom: 8px; }
+  .sop-wrap .sop-sub { color: #8a97a8; font-size: 15px; margin-bottom: 32px; }
+  .sop-section { background: rgba(18,37,64,.6); border: 1px solid #22385a; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  .sop-section h2 { color: #d4a843; font-size: 20px; margin: 0 0 16px; }
+  .sop-section h3 { color: #e9edf3; font-size: 16px; margin: 20px 0 10px; }
+  .sop-section p, .sop-section li { color: #b8c4d4; font-size: 15px; line-height: 1.7; }
+  .sop-section ul, .sop-section ol { padding-left: 22px; margin: 10px 0; }
+  .sop-section li { margin-bottom: 8px; }
+  .sop-section strong { color: #e9edf3; }
+  .sop-tip { background: rgba(212,168,67,.08); border-left: 3px solid #d4a843; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  .sop-tip p { margin: 0; font-size: 14px; }
+  .sop-back { display:inline-block; margin-bottom:16px; color:#d4a843; font-weight:700; font-size:14px; }
+  /* ---------- KPI cards ---------- */
+  .kpi-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px; }
+  .kpi-card { background: rgba(18,37,64,.6); border:1px solid #22385a; border-radius:12px; padding:14px; }
+  .kpi-card .kpi-num { font-size:26px; font-weight:800; color:#e9edf3; }
+  .kpi-card .kpi-lbl { font-size:12px; color:#8a97a8; margin-top:4px; }
+  .kpi-chart-wrap { background: rgba(18,37,64,.6); border:1px solid #22385a; border-radius:12px; padding:16px; margin-bottom:20px; }
+  .kpi-chart-wrap h3 { margin:0 0 10px; font-size:14px; color:#e8c476; }
+  .kpi-chart-wrap .chart-box { position:relative; height:220px; }
+
 </style>
 </head>
 <body>
@@ -412,6 +439,8 @@
           <span id="upload-icon">⬆</span> <span id="upload-label">Upload Today's List</span>
         </button>
         <input type="file" id="file-input" accept=".csv" style="display:none" />
+        <a class="btn-ghost icon-btn" href="?report=1" target="_blank" rel="noopener" title="KPI Report">📈</a>
+        <a class="btn-ghost icon-btn" href="?sop=1" target="_blank" rel="noopener" title="SOP — How to use this CRM">📋</a>
       </div>
     </div>
   </div>
@@ -549,7 +578,8 @@
 
 <div id="report-screen" style="display:none; min-height:100vh; padding:24px;">
   <div style="max-width:900px; margin:0 auto;">
-    <h1 style="margin:0 0 4px;">Activity Report</h1>
+    <a class="sop-back" href=".">← Back to CRM</a>
+    <h1 style="margin:0 0 4px;">📈 KPI Report</h1>
     <div style="font-size:13px; color:#8a97a8; margin-bottom:20px;">Calls logged, stage changes, and dial clicks, attributed by each lead's assigned director.</div>
 
     <div style="display:flex; gap:10px; margin-bottom:20px;">
@@ -564,6 +594,10 @@
     <h2 style="font-size:16px; margin:28px 0 12px;">Recent Activity</h2>
     <div id="report-feed"></div>
   </div>
+</div>
+
+<div id="sop-screen" style="display:none; min-height:100vh;">
+  <div class="sop-wrap" id="sop-body"></div>
 </div>
 
 <div id="toast-container"></div>
@@ -718,24 +752,32 @@ DIRECTORS.forEach(d => {
 
 const urlParams = new URLSearchParams(window.location.search);
 const isReportMode = urlParams.get('report') === '1';
+const isSopMode = urlParams.get('sop') === '1';
 
 if (isReportMode) {
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('report-screen').style.display = 'block';
   initReportMode();
-} else {
+} else if (!isSopMode) {
   startListening();
 }
 
 let reportRangeDays = 7;
 let allActivity = [];
 
+let allReportLeads = [];
 async function initReportMode() {
   try {
     const snapshot = await db.collection('activityLog').orderBy('ts', 'desc').limit(5000).get();
     allActivity = snapshot.docs.map(d => d.data());
   } catch (e) {
     allActivity = [];
+  }
+  try {
+    const lsnap = await db.collection('leads').get();
+    allReportLeads = lsnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    allReportLeads = [];
   }
   renderReport();
   document.querySelectorAll('[data-report-range]').forEach(btn => {
@@ -751,50 +793,94 @@ function renderReport() {
     btn.classList.toggle('active', parseInt(btn.getAttribute('data-report-range'), 10) === reportRangeDays);
   });
 
+  const cutoff = reportRangeDays > 0 ? (() => { const c = new Date(); c.setDate(c.getDate() - reportRangeDays); return c; })() : null;
+  const acts = allActivity.filter(a => !cutoff || new Date(a.ts) >= cutoff);
+
+  const calls = acts.filter(a => a.action === 'call_logged' || a.action === 'dialer_dispo').length;
+  const sms = acts.filter(a => a.action === 'sms_sent').length;
+  const offers = acts.filter(a => a.action === 'offer_submitted').length;
+  const qualified = acts.filter(a => a.action === 'status_changed' && a.newStatus === 'callback').length;
+  const conv = calls ? Math.round((qualified / calls) * 100) : 0;
+  const stageCount = id => allReportLeads.filter(l => l.status === id).length;
+  const cards = [
+    [allReportLeads.length, 'Total Leads'],
+    [stageCount('new'), 'New'],
+    [stageCount('trying'), 'Trying to Reach'],
+    [stageCount('callback'), 'Qualified Leads'],
+    [stageCount('followup'), 'Follow Ups'],
+    [stageCount('under_contract'), 'Under Contract'],
+    [calls, 'Calls Logged'],
+    [sms, 'Texts Sent'],
+    [offers, 'Offers Submitted'],
+    [conv + '%', 'Call \u2192 Qualified'],
+  ];
+  document.getElementById('report-summary').innerHTML =
+    '<div class="kpi-cards">' + cards.map(c =>
+      '<div class="kpi-card"><div class="kpi-num">' + c[0] + '</div><div class="kpi-lbl">' + c[1] + '</div></div>').join('') + '</div>' +
+    '<div class="kpi-chart-wrap"><h3>Calls per day</h3><div class="chart-box"><canvas id="kpi-calls-chart"></canvas></div></div>' +
+    '<h2 style="font-size:16px; margin:28px 0 12px;">By Director</h2><div id="report-directors"></div>';
+
+  renderReportChart(acts);
+  renderReportDirectors(acts);
+  renderReportFeed();
+}
+
+let reportChart = null;
+function renderReportChart(acts) {
+  if (reportChart) { try { reportChart.destroy(); } catch (e) {} reportChart = null; }
+  const days = reportRangeDays === 1 ? 1 : (reportRangeDays === 7 ? 7 : 30);
+  const labels = [], data = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }));
+    data.push(acts.filter(a => (a.action === 'call_logged' || a.action === 'dialer_dispo') && (a.ts || '').slice(0, 10) === key).length);
+  }
+  if (typeof Chart === 'undefined') return;
+  Chart.defaults.color = '#8a97a8';
+  Chart.defaults.borderColor = 'rgba(30,53,84,.7)';
+  reportChart = new Chart(document.getElementById('kpi-calls-chart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: '#d4a843', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+  });
+}
+
+function renderReportDirectors(acts) {
+  const byDirector = {};
+  acts.forEach(a => {
+    const d = a.director || 'Unassigned';
+    if (!byDirector[d]) byDirector[d] = { calls: 0, sms_sent: 0, offer_submitted: 0, status_changed: 0, dial_clicked: 0 };
+    if (a.action === 'call_logged' || a.action === 'dialer_dispo') byDirector[d].calls++;
+    else if (byDirector[d][a.action] !== undefined) byDirector[d][a.action]++;
+  });
+  const directors = Object.keys(byDirector).sort();
+  let html = '<table class="report-table"><thead><tr><th>Director</th><th>Calls</th><th>Texts</th><th>Offers</th><th>Stage Changes</th><th>Dial Clicks</th><th>Total</th></tr></thead><tbody>';
+  if (!directors.length) html += '<tr><td colspan="7" style="color:#8a97a8;">No activity in this range.</td></tr>';
+  directors.forEach(d => {
+    const c = byDirector[d];
+    const total = c.calls + c.sms_sent + c.offer_submitted + c.status_changed + c.dial_clicked;
+    html += '<tr><td>' + escapeHtml(d) + '</td><td class="num">' + c.calls + '</td><td class="num">' + c.sms_sent + '</td><td class="num">' + c.offer_submitted + '</td><td class="num">' + c.status_changed + '</td><td class="num">' + c.dial_clicked + '</td><td class="num">' + total + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('report-directors').innerHTML = html;
+}
+
+function renderReportFeed() {
   let filtered = allActivity;
   if (reportRangeDays > 0) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - reportRangeDays);
     filtered = allActivity.filter(a => new Date(a.ts) >= cutoff);
   }
-
-  const byDirector = {};
-  filtered.forEach(a => {
-    const d = a.director || 'Unassigned';
-    if (!byDirector[d]) byDirector[d] = { call_logged: 0, status_changed: 0, dial_clicked: 0 };
-    if (byDirector[d][a.action] !== undefined) byDirector[d][a.action]++;
-  });
-
-  const directors = Object.keys(byDirector).sort();
-  let tableHtml = `<table class="report-table"><thead><tr>
-    <th>Director</th><th>Calls Logged</th><th>Stage Changes</th><th>Dial Clicks</th><th>Total</th>
-  </tr></thead><tbody>`;
-  if (directors.length === 0) {
-    tableHtml += `<tr><td colspan="5" style="color:#8a97a8;">No activity in this range.</td></tr>`;
-  }
-  directors.forEach(d => {
-    const c = byDirector[d];
-    const total = c.call_logged + c.status_changed + c.dial_clicked;
-    tableHtml += `<tr>
-      <td>${escapeHtml(d)}</td>
-      <td class="num">${c.call_logged}</td>
-      <td class="num">${c.status_changed}</td>
-      <td class="num">${c.dial_clicked}</td>
-      <td class="num">${total}</td>
-    </tr>`;
-  });
-  tableHtml += `</tbody></table>`;
-  document.getElementById('report-summary').innerHTML = tableHtml;
-
   const feed = filtered.slice(0, 100);
-  const actionLabels = { call_logged: 'Logged a call', status_changed: 'Changed stage', dial_clicked: 'Clicked to dial' };
+  const actionLabels = { call_logged: 'Logged a call', dialer_dispo: 'Dialer disposition', status_changed: 'Changed stage', dial_clicked: 'Clicked to dial', sms_sent: 'Sent text', offer_submitted: 'Submitted offer', lead_added: 'Added lead' };
   document.getElementById('report-feed').innerHTML = feed.map(a => `
     <div class="feed-row">
-      <span class="feed-time">${new Date(a.ts).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>
+      <span class="feed-time">${new Date(a.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
       <span class="feed-director">${escapeHtml(a.director || 'Unassigned')}</span>
-      <span>${actionLabels[a.action] || a.action}${a.newStatus ? ' → ' + escapeHtml((STATUS_MAP[a.newStatus]||{}).label || a.newStatus) : ''}${a.outcome ? ' (' + escapeHtml(a.outcome) + ')' : ''} — ${escapeHtml(a.leadName || '')}</span>
-    </div>
-  `).join('') || `<div style="color:#8a97a8; font-size:13px;">No activity in this range.</div>`;
+      <span>${actionLabels[a.action] || a.action}${a.newStatus ? ' \u2192 ' + escapeHtml((STATUS_MAP[a.newStatus] || {}).label || a.newStatus) : ''}${a.outcome ? ' (' + escapeHtml(a.outcome) + ')' : ''}${a.amount ? ' $' + escapeHtml(String(a.amount)) : ''} \u2014 ${escapeHtml(a.leadName || '')}</span>
+    </div>`).join('') || `<div style="color:#8a97a8; font-size:13px;">No activity in this range.</div>`;
 }
 
 /* ---------------- CSV Upload ---------------- */
@@ -2370,6 +2456,128 @@ async function pSendSms() {
     btn.disabled = false; btn.textContent = '➤ Send SMS';
   }
 }
+
+</script>
+<script>
+/* ================= SOP page (?sop=1) — full GA Probates CRM ================= */
+function renderSop() {
+  document.getElementById('sop-body').innerHTML = `
+    <a class="sop-back" href=".">← Back to CRM</a>
+    <h1>📋 Standard Operating Procedure</h1>
+    <div class="sop-sub">How to work the GA Probates CRM — leads, dialer, offers, and KPIs, step by step.</div>
+
+    <div class="sop-section">
+      <h2>1. What This CRM Is</h2>
+      <p>The GA Probates CRM holds every Georgia probate lead from the daily pull and tracks it from first touch to closed deal. No sign-in needed — it syncs live, so anything you change on your phone shows up everywhere instantly.</p>
+    </div>
+
+    <div class="sop-section">
+      <h2>2. Getting Leads In</h2>
+      <ul>
+        <li><strong>⬆ Upload Today's List</strong> — upload the daily probate CSV. Duplicates are caught by phone number, so re-uploading is safe.</li>
+        <li><strong>+ Add Lead</strong> — add a single lead by hand. First name and phone are required.</li>
+      </ul>
+      <div class="sop-tip"><p>💡 New uploads land in the <strong>New</strong> stage automatically.</p></div>
+    </div>
+
+    <div class="sop-section">
+      <h2>3. The Pipeline Stages</h2>
+      <p>Every lead lives in exactly one stage. Move them with the stage picker on the lead card:</p>
+      <ol>
+        <li><strong>New</strong> — fresh, never called.</li>
+        <li><strong>Trying to Reach</strong> — called, no conversation yet.</li>
+        <li><strong>Qualified Leads</strong> — you spoke with them and they're a real prospect. Sub-stages: <em>Must Underwrite</em> / <em>Submit Offer</em>.</li>
+        <li><strong>Follow Ups</strong> — they asked you to call back later.</li>
+        <li><strong>Under Contract</strong> — offer accepted, working toward close.</li>
+        <li><strong>Closed</strong> — deal done.</li>
+      </ol>
+      <p>Plus the exits: <strong>Not Interested</strong> and <strong>Dead / Bad Number</strong>.</p>
+    </div>
+
+    <div class="sop-section">
+      <h2>4. Working a Lead</h2>
+      <ul>
+        <li><strong>Tap a lead card</strong> to expand it — phone, address, notes, tasks, and history.</li>
+        <li><strong>Tap the phone number</strong> to call. The contact auto-saves to Quo with the property address in the Company field.</li>
+        <li><strong>Log Call</strong> — record the outcome and a note after every call.</li>
+        <li><strong>Tasks</strong> — set dated follow-up tasks on any lead. The agenda filters surface them:
+          <strong>Today's Tasks</strong>, <strong>Tomorrow's Tasks</strong>, <strong>Dormant Tasks</strong>, <strong>Loose Ends</strong>.</li>
+        <li><strong>Director</strong> — assign an acquisition director so activity attributes correctly on the KPI report.</li>
+        <li>Qualified Leads with no open task show a <strong>"no task scheduled"</strong> warning — never let a qualified lead sit without a next step.</li>
+      </ul>
+    </div>
+
+    <div class="sop-section">
+      <h2>5. The Dialer</h2>
+      <p>Tap <strong>📞 Dialer</strong> in the header. It shows one lead at a time — only <strong>New</strong> and <strong>Trying to Reach</strong> leads with a phone number, <strong>New leads first</strong>.</p>
+      <h3>The 6 dispositions</h3>
+      <ul>
+        <li><strong>📵 No Answer</strong> — stays in the queue, advances the cadence.</li>
+        <li><strong>💬 Qualified</strong> — moves to Qualified Leads. <strong>Note required.</strong></li>
+        <li><strong>📅 Follow Up Scheduled</strong> — moves to Follow Ups. <strong>Note required.</strong></li>
+        <li><strong>🚫 Not Interested</strong> — out of the queue.</li>
+        <li><strong>❌ Bad Number</strong> — out of the queue, flagged for a new number.</li>
+        <li><strong>☠️ Dead Lead</strong> — out of the queue immediately (asks to confirm).</li>
+      </ul>
+      <h3>The 10-touch cadence</h3>
+      <p>Every lead follows this cycle, shown on the dialer card as "Touch X of 9":</p>
+      <ol>
+        <li><strong>Day 1 AM</strong> — Ghost call (one call, no VM, no SMS).</li>
+        <li><strong>Day 1</strong> — Call, leave VM, send intro SMS.</li>
+        <li><strong>Day 1 PM</strong> — Call + VM.</li>
+        <li><strong>Day 2</strong> — SMS.</li>
+        <li><strong>Day 3</strong> — Ghost call.</li>
+        <li><strong>Day 4</strong> — Call AM/PM + VM.</li>
+        <li><strong>Day 6</strong> — SMS.</li>
+        <li><strong>Day 7 AM</strong> — Call + VM.</li>
+        <li><strong>Day 7 PM</strong> — Call. Then the cycle restarts.</li>
+      </ol>
+      <div class="sop-tip"><p>💡 The dialer top bar tracks your session: calls made, qualified, and conversion %.</p></div>
+    </div>
+
+    <div class="sop-section">
+      <h2>6. Texting</h2>
+      <ul>
+        <li><strong>💬 Text</strong> on the dialer card opens the SMS sheet.</li>
+        <li>Pick a template — <strong>Intro</strong>, <strong>Day 2</strong>, <strong>Day 6</strong> — or write a custom message.</li>
+        <li>Texts send through Quo and are logged on the lead. If sending fails you'll see the real error — never a fake "sent".</li>
+      </ul>
+    </div>
+
+    <div class="sop-section">
+      <h2>7. Submit Offer</h2>
+      <p>Leads in <strong>Qualified Leads</strong> and <strong>Follow Ups</strong> show a <strong>💰 Submit Offer</strong> button.</p>
+      <ul>
+        <li>Enter the offer <strong>amount</strong>, <strong>date</strong>, and a <strong>note</strong>. It's saved on the lead and logged.</li>
+        <li>Every submitted offer counts on the <strong>KPI report</strong> — offers submitted is a core metric for this CRM.</li>
+        <li>The <strong>📊 Offers</strong> button in the header opens the monthly offers report.</li>
+      </ul>
+      <div class="sop-tip"><p>💡 Fill in <strong>LAO</strong> and <strong>MAO</strong> on the lead card before submitting, so the offer has context.</p></div>
+    </div>
+
+    <div class="sop-section">
+      <h2>8. KPI Report</h2>
+      <p>Tap the <strong>📈</strong> icon in the header (opens in a new tab). It shows:</p>
+      <ul>
+        <li><strong>KPI cards</strong> — pipeline counts, calls, texts, offers submitted, and conversion % for the selected range.</li>
+        <li><strong>Calls-per-day chart</strong> — activity trend.</li>
+        <li><strong>Director table</strong> — calls, texts, offers, stage changes, and dial clicks per director.</li>
+        <li><strong>Recent activity feed</strong> — everything that happened, newest first.</li>
+      </ul>
+      <p>Switch ranges with <strong>Today / Last 7 Days / Last 30 Days / All Time</strong>.</p>
+    </div>`;
+}
+
+/* Boot: ?sop=1 shows the SOP screen (first script skips startListening in sop mode) */
+(function () {
+  if (new URLSearchParams(window.location.search).get('sop') === '1') {
+    document.getElementById('app-screen').style.display = 'none';
+    var rs = document.getElementById('report-screen');
+    if (rs) rs.style.display = 'none';
+    document.getElementById('sop-screen').style.display = 'block';
+    renderSop();
+  }
+})();
 
 </script>
 </body>
