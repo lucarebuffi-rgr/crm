@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GA Probates">
 <title>GA Probates — Call List</title>
 
 <!-- Firebase (no build step — loaded straight from Google's CDN) -->
@@ -417,6 +422,26 @@
   .kpi-chart-wrap { background: rgba(18,37,64,.6); border:1px solid #22385a; border-radius:12px; padding:16px; margin-bottom:20px; }
   .kpi-chart-wrap h3 { margin:0 0 10px; font-size:14px; color:#e8c476; }
   .kpi-chart-wrap .chart-box { position:relative; height:220px; }
+
+  /* ===== Mobile (small screens only — desktop untouched) ===== */
+  @media (max-width: 640px) {
+    body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+    .header { padding: 14px 14px 0; }
+    .header-inner h1 { font-size: 20px; }
+    .content { padding: 14px 12px calc(60px + env(safe-area-inset-bottom)); }
+    /* iOS zooms on inputs under 16px — keep it at 16 */
+    input, select, textarea { font-size: 16px !important; }
+    .btn-gold, .btn-ghost { min-height: 48px; }
+    .search-wrap input { padding: 13px 12px 13px 38px; }
+    /* Dialer: roomier touch targets, full-width dispos */
+    .pdialer { padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); }
+    .pdialer-card { padding: 16px; }
+    .pdialer-side-btn { padding: 0 18px; min-height: 72px; }
+    .pdialer-dispos { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pdialer-dispos button { min-height: 52px; font-size: 15px; }
+    .pdialer-notes { font-size: 16px; }
+    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+  }
 
 </style>
 </head>
