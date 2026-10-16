@@ -396,6 +396,11 @@
   #psms-text { width: 100%; min-height: 90px; background: #0b1626; border: 1px solid #22385a; border-radius: 10px; color: #e9edf3; font-size: 15px; padding: 10px 12px; resize: vertical; box-sizing: border-box; margin-bottom: 10px; }
   .psms-foot { display: flex; justify-content: flex-end; }
   .psms-foot > div { display: flex; gap: 8px; }
+  .pfu-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pfu-chip { background: #142640; border: 1px solid #22385a; color: #e9edf3; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 48px; }
+  .pfu-chip.sel { border-color: #d4a843; background: rgba(212,168,67,.15); color: #e9c874; }
+  .pfu-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .pfu-row input { flex: 1; background: #0b1626; border: 1px solid #22385a; border-radius: 10px; color: #e9edf3; font-size: 16px; padding: 12px; box-sizing: border-box; color-scheme: dark; }
 
 
   /* ---------- Header icon buttons ---------- */
@@ -2281,6 +2286,25 @@ function pInitDialerDOM() {
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="pfu-sheet" class="psms-sheet">
+    <div class="psms-backdrop" onclick="pCloseFollowupSheet()"></div>
+    <div class="psms-panel">
+      <h3>📅 When's the follow-up?</h3>
+      <div class="psms-to" id="pfu-lead">—</div>
+      <div class="pfu-chips" id="pfu-chips"></div>
+      <div class="pfu-row">
+        <input type="date" id="pfu-date" onchange="document.querySelectorAll('#pfu-chips .pfu-chip').forEach(c=>c.classList.remove('sel'))">
+        <input type="time" id="pfu-time" style="max-width:140px;flex:0 0 140px;">
+      </div>
+      <div class="psms-foot">
+        <div>
+          <button class="btn-ghost" onclick="pCloseFollowupSheet()">Cancel</button>
+          <button class="btn-gold" onclick="pConfirmFollowup()">✓ Schedule</button>
+        </div>
+      </div>
+    </div>
   </div>`);
 }
 
@@ -2386,6 +2410,11 @@ async function pDialerDispo(outcomeId) {
     return;
   }
   if (oc.id === 'dead_lead' && !confirm('Move this lead to Dead? It will leave the dialer queue.')) return;
+  if (oc.id === 'followup_scheduled') { pOpenFollowupSheet(); return; }
+  await pCommitDispo(oc, lead, noteText, null);
+}
+
+async function pCommitDispo(oc, lead, noteText, task) {
   const at = new Date().toISOString();
   const curStep = lead.cadenceStep || 0;
   let newStep = curStep + 1;
@@ -2398,15 +2427,18 @@ async function pDialerDispo(outcomeId) {
   lead.callAttempts = (lead.callAttempts || 0) + 1;
   lead.cadenceStep = newStep;
   lead.cycleStartDate = cycleStart;
+  if (task) lead.tasks = (lead.tasks || []).concat([task]);
   try {
-    await leadsRef.doc(lead.id).update({
+    const upd = {
       callAttempts: firebase.firestore.FieldValue.increment(1),
       lastCalledAt: at,
       status: oc.status,
       notes: firebase.firestore.FieldValue.arrayUnion(entry),
       cadenceStep: newStep,
       cycleStartDate: cycleStart,
-    });
+    };
+    if (task) upd.tasks = firebase.firestore.FieldValue.arrayUnion(task);
+    await leadsRef.doc(lead.id).update(upd);
   } catch (e) { showToast('Could not save disposition', 'error'); return; }
   pDialer.stats.called++;
   if (oc.id === 'qualified') pDialer.stats.qualified++;
@@ -2415,6 +2447,44 @@ async function pDialerDispo(outcomeId) {
   pDialer.queue = pBuildQueue();
   if (pDialer.idx >= pDialer.queue.length) pDialer.idx = 0;
   pRenderDialerCard();
+}
+
+// ---- Follow-up date sheet (asks WHEN before a Follow Up Scheduled disposition saves) ----
+let pFuLead = null, pFuOc = null, pFuNote = '', pFuDays = 1;
+function pOpenFollowupSheet() {
+  const lead = pDialer.queue[pDialer.idx];
+  const oc = P_DIALER_OUTCOMES.find(o => o.id === 'followup_scheduled');
+  if (!lead || !oc) return;
+  pFuLead = lead; pFuOc = oc;
+  pFuNote = (document.getElementById('pdialer-notes').value || '').trim();
+  pFuDays = 1;
+  document.getElementById('pfu-lead').textContent =
+    ((lead.firstName || lead.name || 'Lead')) + (lead.address ? ' · ' + lead.address : '');
+  const chips = [[0, 'Today'], [1, 'Tomorrow'], [2, 'In 2 days'], [3, 'In 3 days'], [7, 'Next week']];
+  document.getElementById('pfu-chips').innerHTML = chips.map(([d, l]) =>
+    `<button class="pfu-chip${d === 1 ? ' sel' : ''}" data-days="${d}" onclick="pFuPick(${d})">${l}</button>`).join('');
+  document.getElementById('pfu-date').value = localDateStr(1);
+  document.getElementById('pfu-time').value = '';
+  document.getElementById('pfu-sheet').classList.add('open');
+}
+function pFuPick(d) {
+  pFuDays = d;
+  document.getElementById('pfu-date').value = localDateStr(d);
+  document.querySelectorAll('#pfu-chips .pfu-chip').forEach(c => c.classList.toggle('sel', +c.dataset.days === d));
+}
+function pCloseFollowupSheet() {
+  document.getElementById('pfu-sheet').classList.remove('open');
+  pFuLead = null; pFuOc = null;
+}
+async function pConfirmFollowup() {
+  const date = document.getElementById('pfu-date').value || localDateStr(pFuDays);
+  const time = document.getElementById('pfu-time').value || '';
+  const lead = pFuLead, oc = pFuOc, noteText = pFuNote;
+  pCloseFollowupSheet();
+  if (!lead || !oc) return;
+  const task = { id: makeId(), name: 'Follow up call', date, time, notes: noteText, done: false, createdAt: new Date().toISOString() };
+  await pCommitDispo(oc, lead, noteText, task);
+  showToast('Follow-up scheduled for ' + date);
 }
 
 // ---- SMS sheet ----
