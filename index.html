@@ -2163,9 +2163,9 @@ const P_CADENCE_STEPS = [
   { step: 0, day: 1, dayOffset: 0, short: 'DD+VM+SMS #1', label: 'Day 1 — Double Dial + VM + SMS #1', type: 'call_sms', smsKind: 'intro', hint: 'Two rapid calls, leave voicemail, send SMS #1' },
   { step: 1, day: 2, dayOffset: 1, short: 'DD+VM+SMS #2', label: 'Day 2 — Double Dial + VM + SMS #2', type: 'call_sms', smsKind: 'day2',  hint: 'Two rapid calls, leave voicemail, send SMS #2' },
   { step: 2, day: 3, dayOffset: 2, short: 'Double Dial',  label: 'Day 3 — Double Dial',               type: 'call',     hint: 'Two rapid calls, no SMS' },
-  { step: 3, day: 4, dayOffset: 3, short: 'DD+VM+SMS #3', label: 'Day 4 — Double Dial + VM + SMS #3', type: 'call_sms', smsKind: 'day6',  hint: 'Two rapid calls, leave voicemail, send SMS #3' },
+  { step: 3, day: 4, dayOffset: 3, short: 'DD+VM+SMS #3', label: 'Day 4 — Double Dial + VM + SMS #3', type: 'call_sms', smsKind: 'day4',  hint: 'Two rapid calls, leave voicemail, send SMS #3' },
   { step: 4, day: 6, dayOffset: 5, short: 'DD+VM',        label: 'Day 6 — Double Dial + VM',          type: 'call',     hint: 'Two rapid calls, leave voicemail, no SMS' },
-  { step: 5, day: 7, dayOffset: 6, short: 'DD+VM+SMS #4', label: 'Day 7 — Double Dial + VM + SMS #4', type: 'call_sms', smsKind: 'day6',  hint: 'Two rapid calls, leave voicemail, send SMS #4' },
+  { step: 5, day: 7, dayOffset: 6, short: 'DD+VM+SMS #4', label: 'Day 7 — Double Dial + VM + SMS #4', type: 'call_sms', smsKind: 'day7',  hint: 'Two rapid calls, leave voicemail, send SMS #4' },
 ];
 function pGetCadence(lead) {
   const raw = (lead.cadenceStep != null ? lead.cadenceStep : 0);
@@ -2397,8 +2397,9 @@ function pSmsTemplate(kind, lead) {
   const name = (lead.firstName || '').trim() || 'there';
   const addr = lead.address || 'the property';
   if (kind === 'intro') return `Hi ${name}, this is Luca — I just tried reaching you about ${addr}. I buy houses in the area and wanted to see if you'd consider an offer. Worth a quick chat?`;
-  if (kind === 'day2')  return `Hi ${name}, this is Luca — I tried reaching you about ${addr}. I buy houses in the area and wanted to see if you'd consider an offer. Worth a quick chat?`;
-  if (kind === 'day6')  return `Hi ${name}, Luca again — following up on ${addr}. Still interested in hearing a cash offer? No pressure either way.`;
+  if (kind === 'day2')  return `Hey ${name}, Luca here again. Just wanted to make sure you saw my last text?`;
+  if (kind === 'day4')  return `Hi ${name}, not trying to bother you.. simply wanted to see if you were looking to sell ${addr}?`;
+  if (kind === 'day7')  return `Hopefully I haven't done anything to upset you ${name}, and that's why you ignored me.. anyways, if you ever end up selling ${addr}, please call me.`;
   return '';
 }
 function pOpenSmsSheet(leadId, prefill) {
@@ -2407,7 +2408,7 @@ function pOpenSmsSheet(leadId, prefill) {
   pSmsLeadId = leadId;
   document.getElementById('psms-phone').textContent = (lead.firstName ? lead.firstName + ' · ' : '') + formatPhone(lead.phone || '');
   document.getElementById('psms-template-btns').innerHTML = [
-    ['intro', 'SMS #1'], ['day2', 'SMS #2'], ['day6', 'SMS #3 / #4'],
+    ['intro', 'SMS #1'], ['day2', 'SMS #2'], ['day4', 'SMS #3'], ['day7', 'SMS #4'],
   ].map(([k, l]) => `<button class="psms-tpl" onclick="pSmsUseTemplate('${k}')">${l}</button>`).join('') +
     `<button class="psms-tpl" onclick="pSmsUseTemplate('custom')">Custom</button>`;
   const ta = document.getElementById('psms-text');
@@ -2535,7 +2536,7 @@ function renderSop() {
       <h2>6. Texting</h2>
       <ul>
         <li><strong>💬 Text</strong> on the dialer card opens the SMS sheet.</li>
-        <li>Pick a template — <strong>SMS #1</strong>, <strong>SMS #2</strong>, <strong>SMS #3 / #4</strong> — or write a custom message.</li>
+        <li>Pick a template — <strong>SMS #1</strong>, <strong>SMS #2</strong>, <strong>SMS #3</strong>, <strong>SMS #4</strong> — or write a custom message.</li>
         <li>Texts send through Quo and are logged on the lead. If sending fails you'll see the real error — never a fake "sent".</li>
       </ul>
     </div>
