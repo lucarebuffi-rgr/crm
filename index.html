@@ -2107,7 +2107,7 @@ document.getElementById('delete-selected-btn').addEventListener('click', deleteS
 <script>
 /* ================= GA PROBATES DIALER (2026-10-16) =================
    Mirrors the GA Stacked & Zombies dialer: full-screen queue, 6 dispositions,
-   same 10-touch cadence, SMS sheet + Quo send, KPI tracker, Zillow/Maps.
+   7-touch / 7-day double-dial cadence, SMS sheet + Quo send, KPI tracker, Zillow/Maps.
    Queue = leads with status 'new' or 'trying' that have a phone number.
    New leads always first. No sign-in needed (open CRM).
    Writes to the same lead fields as logCall: status, notes, callAttempts,
@@ -2158,20 +2158,18 @@ async function pSendSmsViaQuo(phone, message) {
   return data;
 }
 
-// ---- Cadence: same 10-touch / 7-day cycle as the Stacked dialer ----
+// ---- Cadence: 7-touch / 7-day double-dial cycle (Luca, 2026-10-16) ----
 const P_CADENCE_STEPS = [
-  { step: 0, day: 1, dayOffset: 0, short: 'Ghost Call AM',       label: 'Day 1 — Ghost Call — AM',               type: 'call',     hint: 'Just one call; no VM, no SMS' },
-  { step: 1, day: 1, dayOffset: 0, short: 'Double Dial+LVM+SMS',  label: 'Day 1 — Double Dial + LVM + SMS intro',  type: 'call_sms', hint: 'Two rapid calls, leave voicemail, send intro SMS' },
-  { step: 2, day: 1, dayOffset: 0, short: 'Call PM + LVM',        label: 'Day 1 PM — Call + LVM',                type: 'call',     hint: 'Call in the afternoon, leave voicemail' },
-  { step: 3, day: 2, dayOffset: 1, short: 'SMS',                 label: 'Day 2 — SMS',                          type: 'sms',      hint: 'Send follow-up text' },
-  { step: 4, day: 3, dayOffset: 2, short: 'Ghost Call',          label: 'Day 3 — Ghost Call',                   type: 'call',     hint: 'Call, no voicemail if no answer' },
-  { step: 5, day: 4, dayOffset: 3, short: 'Call AM/PM + LVM',    label: 'Day 4 — Call AM/PM + LVM',             type: 'call',     hint: 'Call morning and afternoon, leave voicemail' },
-  { step: 6, day: 6, dayOffset: 5, short: 'SMS',                 label: 'Day 6 — SMS',                          type: 'sms',      hint: 'Send follow-up text' },
-  { step: 7, day: 7, dayOffset: 6, short: 'Call AM + LVM',       label: 'Day 7 AM — Call + LVM',                type: 'call',     hint: 'Call in the morning, leave voicemail' },
-  { step: 8, day: 7, dayOffset: 6, short: 'Call PM',             label: 'Day 7 PM — Call',                      type: 'call',     hint: 'Call in the afternoon' },
+  { step: 0, day: 1, dayOffset: 0, short: 'DD+VM+SMS #1', label: 'Day 1 — Double Dial + VM + SMS #1', type: 'call_sms', smsKind: 'intro', hint: 'Two rapid calls, leave voicemail, send SMS #1' },
+  { step: 1, day: 2, dayOffset: 1, short: 'DD+VM+SMS #2', label: 'Day 2 — Double Dial + VM + SMS #2', type: 'call_sms', smsKind: 'day2',  hint: 'Two rapid calls, leave voicemail, send SMS #2' },
+  { step: 2, day: 3, dayOffset: 2, short: 'Double Dial',  label: 'Day 3 — Double Dial',               type: 'call',     hint: 'Two rapid calls, no SMS' },
+  { step: 3, day: 4, dayOffset: 3, short: 'DD+VM+SMS #3', label: 'Day 4 — Double Dial + VM + SMS #3', type: 'call_sms', smsKind: 'day6',  hint: 'Two rapid calls, leave voicemail, send SMS #3' },
+  { step: 4, day: 6, dayOffset: 5, short: 'DD+VM',        label: 'Day 6 — Double Dial + VM',          type: 'call',     hint: 'Two rapid calls, leave voicemail, no SMS' },
+  { step: 5, day: 7, dayOffset: 6, short: 'DD+VM+SMS #4', label: 'Day 7 — Double Dial + VM + SMS #4', type: 'call_sms', smsKind: 'day6',  hint: 'Two rapid calls, leave voicemail, send SMS #4' },
 ];
 function pGetCadence(lead) {
-  const step = (lead.cadenceStep != null ? lead.cadenceStep : 0);
+  const raw = (lead.cadenceStep != null ? lead.cadenceStep : 0);
+  const step = Math.min(raw, P_CADENCE_STEPS.length - 1);
   return { step, stepDef: P_CADENCE_STEPS[step] || P_CADENCE_STEPS[0] };
 }
 function pCadenceTrackerHTML(lead) {
@@ -2238,7 +2236,7 @@ function pInitDialerDOM() {
         Work the queue top-down — New leads first, then Trying to Reach.<br>
         Tap the number to call (saves the contact to Quo automatically).<br>
         Pick a disposition after every call. Notes are <b>required</b> for Qualified and Follow Up Scheduled.<br>
-        Follow the cadence step shown on each card (10 touches over 7 days, then it restarts).<br>
+        Follow the cadence step shown on each card (7 touches over 7 days, then it restarts).<br>
         ☠️ Dead Lead removes the lead from the dialer immediately.
       </div>
     </details>
@@ -2343,7 +2341,7 @@ function pRenderDialerCard() {
     ${pCadenceTrackerHTML(lead)}
     ${phone ? `
       <a class="pdial-call" href="tel:${digits}" onclick="pEnsureQuoContact('${escapeHtml(name).replace(/'/g, "\\'")}', '${digits}', '${escapeHtml(addr).replace(/'/g, "\\'")}')">📞 ${escapeHtml(formatPhone(phone))}</a>
-      <button class="pdial-text" onclick="pOpenSmsSheet('${lead.id}', ${stepDef.type === 'sms' || stepDef.type === 'call_sms' ? "'intro'" : 'null'})">💬 Text</button>
+      <button class="pdial-text" onclick="pOpenSmsSheet('${lead.id}', ${(stepDef.type === 'sms' || stepDef.type === 'call_sms') && stepDef.smsKind ? `'${stepDef.smsKind}'` : 'null'})">💬 Text</button>
     ` : '<div class="pdialer-nophone">No phone on file</div>'}
     <textarea id="pdialer-notes" class="pdialer-notes" placeholder="Call notes… (required for Qualified / Follow Up Scheduled)"></textarea>
     <div class="pdialer-dispos">
@@ -2409,7 +2407,7 @@ function pOpenSmsSheet(leadId, prefill) {
   pSmsLeadId = leadId;
   document.getElementById('psms-phone').textContent = (lead.firstName ? lead.firstName + ' · ' : '') + formatPhone(lead.phone || '');
   document.getElementById('psms-template-btns').innerHTML = [
-    ['intro', 'Intro'], ['day2', 'Day 2'], ['day6', 'Day 6'],
+    ['intro', 'SMS #1'], ['day2', 'SMS #2'], ['day6', 'SMS #3 / #4'],
   ].map(([k, l]) => `<button class="psms-tpl" onclick="pSmsUseTemplate('${k}')">${l}</button>`).join('') +
     `<button class="psms-tpl" onclick="pSmsUseTemplate('custom')">Custom</button>`;
   const ta = document.getElementById('psms-text');
@@ -2519,18 +2517,16 @@ function renderSop() {
         <li><strong>❌ Bad Number</strong> — out of the queue, flagged for a new number.</li>
         <li><strong>☠️ Dead Lead</strong> — out of the queue immediately (asks to confirm).</li>
       </ul>
-      <h3>The 10-touch cadence</h3>
-      <p>Every lead follows this cycle, shown on the dialer card as "Touch X of 9":</p>
+      <h3>The 7-touch cadence</h3>
+      <p>Every lead follows this cycle, shown on the dialer card as "Touch X of 6":</p>
       <ol>
-        <li><strong>Day 1 AM</strong> — Ghost call (one call, no VM, no SMS).</li>
-        <li><strong>Day 1</strong> — Call, leave VM, send intro SMS.</li>
-        <li><strong>Day 1 PM</strong> — Call + VM.</li>
-        <li><strong>Day 2</strong> — SMS.</li>
-        <li><strong>Day 3</strong> — Ghost call.</li>
-        <li><strong>Day 4</strong> — Call AM/PM + VM.</li>
-        <li><strong>Day 6</strong> — SMS.</li>
-        <li><strong>Day 7 AM</strong> — Call + VM.</li>
-        <li><strong>Day 7 PM</strong> — Call. Then the cycle restarts.</li>
+        <li><strong>Day 1</strong> — Double Dial + VM + SMS #1.</li>
+        <li><strong>Day 2</strong> — Double Dial + VM + SMS #2.</li>
+        <li><strong>Day 3</strong> — Double Dial.</li>
+        <li><strong>Day 4</strong> — Double Dial + VM + SMS #3.</li>
+        <li><strong>Day 5</strong> — Skip.</li>
+        <li><strong>Day 6</strong> — Double Dial + VM.</li>
+        <li><strong>Day 7</strong> — Double Dial + VM + SMS #4. Then the cycle restarts.</li>
       </ol>
       <div class="sop-tip"><p>💡 The dialer top bar tracks your session: calls made, qualified, and conversion %.</p></div>
     </div>
@@ -2539,7 +2535,7 @@ function renderSop() {
       <h2>6. Texting</h2>
       <ul>
         <li><strong>💬 Text</strong> on the dialer card opens the SMS sheet.</li>
-        <li>Pick a template — <strong>Intro</strong>, <strong>Day 2</strong>, <strong>Day 6</strong> — or write a custom message.</li>
+        <li>Pick a template — <strong>SMS #1</strong>, <strong>SMS #2</strong>, <strong>SMS #3 / #4</strong> — or write a custom message.</li>
         <li>Texts send through Quo and are logged on the lead. If sending fails you'll see the real error — never a fake "sent".</li>
       </ul>
     </div>
