@@ -2,7 +2,7 @@ name: Calendar Sync
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # every 15 minutes
+    - cron: '0 * * * *'   # every hour
   workflow_dispatch: {}       # lets you trigger it manually to test
 
 jobs:
