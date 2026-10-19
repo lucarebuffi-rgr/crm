@@ -1019,13 +1019,11 @@ function renderReport(opts) {
       '<div class="kpi-card"><span class="kpi-num" style="color:' + c[2] + ';">' + c[0] + '</span><span class="kpi-label">' + c[1] + '</span></div>').join('') + '</div>' +
     '<div class="kpi-grid">' +
     '<div class="kpi-panel"><h3>\uD83D\uDCC8 Calls Per Day</h3><div class="kpi-sub">' + rangeLabel + ' \u00B7 calls logged per day</div><div class="chart-wrap"><canvas id="' + idPrefix + 'kpi-calls-chart"></canvas></div></div>' +
-    '<div class="kpi-panel"><h3>\uD83D\uDCDE By Director</h3><div class="kpi-sub">' + rangeLabel + ' \u00B7 activity by acquisition director</div><div id="' + idPrefix + 'report-directors"></div></div>' +
-    '<div class="kpi-panel"><h3>\uD83D\uDC64 By Caller</h3><div class="kpi-sub">' + rangeLabel + ' \u00B7 activity by signed-in user</div><div id="' + idPrefix + 'report-callers"></div></div>' +
+    '<div class="kpi-panel"><h3>\uD83D\uDCDE By Director</h3><div class="kpi-sub">' + rangeLabel + ' \u00B7 calls, texts, offers & stage changes per director</div><div id="' + idPrefix + 'report-directors"></div></div>' +
     '</div>';
 
   renderReportChart(acts, idPrefix);
   renderReportDirectors(acts, idPrefix);
-  renderReportCallers(acts, idPrefix);
   if (!opts.skipFeed) renderReportFeed();
 }
 
@@ -1060,10 +1058,14 @@ function renderReportDirectors(acts, idPrefix) {
   idPrefix = idPrefix || '';
   const byDirector = {};
   acts.forEach(a => {
-    const d = a.director || 'Unassigned';
-    if (!byDirector[d]) byDirector[d] = { calls: 0, sms_sent: 0, offer_submitted: 0, status_changed: 0, dial_clicked: 0 };
-    if (a.action === 'call_logged' || a.action === 'dialer_dispo') byDirector[d].calls++;
-    else if (byDirector[d][a.action] !== undefined) byDirector[d][a.action]++;
+    const d = a.byDirector || a.director || 'Unassigned';
+    if (d === 'Not signed in' && a.director && a.director !== 'Unassigned') {
+      // Attribute unsigned activity to the assigned director when known
+    }
+    const key = (d === 'Not signed in' && a.director && a.director !== 'Unassigned') ? a.director : d;
+    if (!byDirector[key]) byDirector[key] = { calls: 0, sms_sent: 0, offer_submitted: 0, status_changed: 0, dial_clicked: 0 };
+    if (a.action === 'call_logged' || a.action === 'dialer_dispo') byDirector[key].calls++;
+    else if (byDirector[key][a.action] !== undefined) byDirector[key][a.action]++;
   });
   const directors = Object.keys(byDirector).sort();
   let html = '<table class="report-table"><thead><tr><th>Director</th><th>Calls</th><th>Texts</th><th>Offers</th><th>Stage Changes</th><th>Dial Clicks</th><th>Total</th></tr></thead><tbody>';
@@ -1077,27 +1079,6 @@ function renderReportDirectors(acts, idPrefix) {
   document.getElementById(idPrefix + 'report-directors').innerHTML = html;
 }
 
-/* Calls grouped by who was signed in when the activity was logged. */
-function renderReportCallers(acts, idPrefix) {
-  idPrefix = idPrefix || '';
-  const byCaller = {};
-  acts.forEach(a => {
-    const d = a.byDirector || 'Not signed in';
-    if (!byCaller[d]) byCaller[d] = { calls: 0, sms_sent: 0, offer_submitted: 0, status_changed: 0, dial_clicked: 0 };
-    if (a.action === 'call_logged' || a.action === 'dialer_dispo') byCaller[d].calls++;
-    else if (byCaller[d][a.action] !== undefined) byCaller[d][a.action]++;
-  });
-  const callers = Object.keys(byCaller).sort();
-  let html = '<table class="report-table"><thead><tr><th>Caller</th><th>Calls</th><th>Texts</th><th>Offers</th><th>Stage Changes</th><th>Dial Clicks</th><th>Total</th></tr></thead><tbody>';
-  if (!callers.length) html += '<tr><td colspan="7" style="color:#8a97a8;">No activity in this range.</td></tr>';
-  callers.forEach(d => {
-    const c = byCaller[d];
-    const total = c.calls + c.sms_sent + c.offer_submitted + c.status_changed + c.dial_clicked;
-    html += '<tr><td>' + escapeHtml(d) + '</td><td class="num">' + c.calls + '</td><td class="num">' + c.sms_sent + '</td><td class="num">' + c.offer_submitted + '</td><td class="num">' + c.status_changed + '</td><td class="num">' + c.dial_clicked + '</td><td class="num">' + total + '</td></tr>';
-  });
-  html += '</tbody></table>';
-  document.getElementById(idPrefix + 'report-callers').innerHTML = html;
-}
 
 function renderReportFeed() {
   let filtered = allActivity;
