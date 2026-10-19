@@ -489,6 +489,146 @@
     .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
   }
 
+
+  /* ================= DESKTOP polish: hover + focus feedback ================= */
+  .btn-gold { transition: filter .15s ease, transform .1s ease; }
+  .btn-gold:hover { filter: brightness(1.08); }
+  .btn-gold:active { transform: scale(.97); }
+  .btn-ghost { transition: border-color .15s ease, color .15s ease, background .15s ease; }
+  .btn-ghost:hover { border-color: #d4a843; color: #e8c476; background: rgba(212,168,67,.08); }
+  .icon-btn { transition: border-color .15s ease, background .15s ease, transform .1s ease; }
+  .icon-btn:hover { border-color: #d4a843; background: rgba(212,168,67,.12); }
+  .icon-btn:active { transform: scale(.93); }
+  .user-chip:hover { border-color: #d4a843; }
+  .lead-card { transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+  .lead-card:hover { border-color: rgba(212,168,67,.45); box-shadow: 0 4px 16px rgba(0,0,0,.45); }
+  .agenda-btn { transition: border-color .15s ease, color .15s ease; }
+  .agenda-btn:hover { border-color: #d4a843; color: #e8c476; }
+  .pdispo-btn { transition: border-color .15s ease, background .15s ease; }
+  .pdispo-btn:hover { border-color: #d4a843; background: rgba(212,168,67,.1); }
+  .status-step { transition: border-color .15s ease, background .15s ease; }
+  .status-step:hover { border-color: #d4a843; }
+  .pdialer-side-btn { transition: border-color .15s ease, color .15s ease; }
+  .pdialer-side-btn:hover { border-color: #d4a843; color: #e8c476; }
+  .call-link { transition: border-color .15s ease, background .15s ease; }
+  .call-link:hover { border-color: #d4a843; background: rgba(212,168,67,.08); }
+  .pmap-btn { transition: filter .15s ease, transform .1s ease; }
+  .pmap-btn:hover { filter: brightness(1.12); }
+  .pmap-btn:active { transform: scale(.93); }
+  .fire-btn { transition: opacity .15s ease, border-color .15s ease; }
+  .fire-btn:hover { opacity: 1; border-color: #d4a843; }
+  .modal-close-btn { transition: color .15s ease; }
+  .modal-close-btn:hover { color: #e9edf3; }
+  .dir-act:hover { border-color: #d4a843; color: #e8c476; }
+  .dir-del:hover { color: #ff9d9a; }
+  :focus-visible { outline: 2px solid #d4a843; outline-offset: 2px; }
+  button:focus:not(:focus-visible), a:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:not(:focus-visible), textarea:focus:not(:focus-visible) { outline: none; }
+
+  /* ================= MOBILE (<=640px) comprehensive ================= */
+  @media (max-width: 640px) {
+    /* --- Header: compact, thumb-friendly --- */
+    .header-inner { gap: 10px; }
+    .header-inner h1 { font-size: 18px; }
+    .header-actions { width: 100%; align-items: stretch !important; }
+    .header-actions > div:first-child { justify-content: flex-start; gap: 8px; }
+    .icon-btn { width: 44px; height: 44px; font-size: 20px; }
+    .user-chip { min-height: 44px; padding: 9px 14px; font-size: 15px; }
+    #upload-btn { min-height: 44px; }
+    .header-actions > .btn-gold { width: 100%; justify-content: center; min-height: 52px; font-size: 17px; }
+    .sync-note { width: 100%; text-align: left; margin-top: 2px; }
+
+    /* --- Sign-in gate --- */
+    #signin-gate { padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); }
+    .gate-card { max-width: 340px; width: 100%; }
+    .gate-card h1 { font-size: 24px; }
+    .gate-card .btn-gold { width: 100%; justify-content: center; min-height: 54px; }
+
+    /* --- Modals become bottom sheets --- */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal-overlay .modal-card {
+      max-width: 100%; width: 100%; margin: 0;
+      border-radius: 18px 18px 0 0;
+      max-height: 92vh; max-height: 92dvh;
+      border-bottom: none;
+    }
+    .modal-header { padding: 16px 18px; position: sticky; top: 0; background: #142640; border-radius: 18px 18px 0 0; z-index: 2; }
+    .modal-header h2 { font-size: 18px; }
+    .modal-close-btn {
+      min-width: 44px; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 20px; border-radius: 10px;
+    }
+    .modal-body { padding: 16px 18px calc(18px + env(safe-area-inset-bottom)); }
+    .modal-actions { padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); }
+    .modal-actions .btn-gold, .modal-actions .btn-ghost { flex: 1; justify-content: center; min-height: 50px; font-size: 15px; }
+    .modal-field input, .modal-field select { min-height: 48px; font-size: 16px; }
+
+    /* --- KPI modal specifics --- */
+    .kpi-cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .kpi-card { padding: 14px 10px; }
+    .kpi-card .kpi-num { font-size: 26px; }
+    .kpi-panel { padding: 14px; overflow-x: auto; }
+    .report-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .report-table th, .report-table td { padding: 10px 10px; white-space: nowrap; }
+    .report-table th:first-child, .report-table td:first-child { position: sticky; left: 0; background: #142640; z-index: 1; }
+    .chart-wrap { height: 220px; }
+
+    /* --- Lead cards --- */
+    .lead-row { padding: 12px; gap: 10px; }
+    .lead-checkbox { width: 24px; height: 24px; }
+    .fire-btn { min-width: 44px; min-height: 44px; font-size: 18px; padding: 6px 10px; }
+    .call-link { min-height: 44px; padding: 10px 14px; font-size: 15px; }
+    .lead-name { font-size: 16px; }
+    .status-step { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; padding: 8px 10px; }
+    .substage-step { min-height: 44px; display: inline-flex; align-items: center; }
+    .outcome-row select { min-height: 48px; font-size: 16px; }
+    .detail-actions .btn-gold, .detail-actions .btn-ghost { min-height: 48px; }
+
+    /* --- Agenda / filter buttons --- */
+    .agenda-btn { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+    .sop-back { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 8px; margin-left: -8px; font-size: 15px; }
+
+    /* --- Directors modal --- */
+    .dir-row { padding: 12px; gap: 8px; flex-wrap: wrap; }
+    .dir-act { min-height: 44px; padding: 8px 14px; font-size: 13px; }
+    .dir-del { min-width: 44px; min-height: 44px; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* --- Dialer: big touch targets everywhere --- */
+    .pdialer { padding: 10px 10px calc(14px + env(safe-area-inset-bottom)); }
+    .pdialer-top { margin-bottom: 8px; }
+    .pdialer-progress, .pdialer-kpi { font-size: 14px; }
+    .pdialer-card { padding: 18px 16px; border-radius: 18px; }
+    .pdialer-name { font-size: 24px; }
+    .pdial-call { padding: 18px 16px; font-size: 24px; border-radius: 16px; margin-bottom: 12px; }
+    .pdial-text { padding: 16px; font-size: 17px; }
+    .pdialer-dispos { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pdispo-btn { min-height: 56px; font-size: 15px; padding: 14px 8px; }
+    .pdialer-side-btn { min-width: 56px; min-height: 76px; font-size: 30px; }
+    .pmap-btn { width: 44px; height: 44px; }
+    .pdialer-notes { min-height: 80px; }
+    .pfu-chip { min-height: 52px; font-size: 15px; }
+    .pfu-row input { min-height: 52px; }
+
+    /* --- SMS sheets (already bottom-sheet; roomier) --- */
+    .psms-panel { padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; }
+    .psms-panel h3 { font-size: 18px; }
+    .psms-tpl { min-height: 44px; font-size: 14px; }
+    #psms-text { min-height: 110px; }
+    .psms-foot .btn-gold, .psms-foot .btn-ghost { min-height: 50px; }
+    .psms-tpledit { min-height: 88px; }
+
+    /* --- Standalone modes (?report=1 / ?sop=1) --- */
+    #report-screen { padding: 16px 12px 60px !important; }
+    #report-screen h1 { font-size: 22px; }
+    .sop-wrap { padding: 16px 12px 60px; }
+
+    /* --- Toast above home indicator --- */
+    .toast { bottom: calc(20px + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px); }
+
+    /* --- Stats grid: 2-up on small phones --- */
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
 </style>
 </head>
 <body>
