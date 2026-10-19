@@ -2714,7 +2714,7 @@ async function pSendSmsViaQuo(phone, message) {
   if (!message || !message.trim()) throw new Error('Message is empty');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 45000);
-  const smsBody = { action: 'sendSms', directorId: pQuoDirectorId(), to: digits, content: message.trim() };
+  const smsBody = { action: 'sendSms', directorId: pQuoDirectorId(), fromNumberId: 'PNB4aDMxDA', to: digits, content: message.trim() };
   let res;
   try {
     res = await fetch(P_QUO_PROXY_URL, {
