@@ -2685,8 +2685,9 @@ const P_QUO_PROXY_URL = 'https://script.google.com/macros/s/AKfycbw4TyScLuANH0OH
 function pQuoDirectorId() { return directorId || 'luca-rebuffi'; }
 function pEnsureQuoContact(name, phone, company) {
   try {
-    const digits = digitsOnly(phone || '');
+    let digits = digitsOnly(phone || '');
     if (!digits) return;
+    if (digits.length === 10) digits = '1' + digits;
     const parts = (name || '').trim().split(/\s+/).filter(Boolean);
     const body = {
       action: 'createContact',
