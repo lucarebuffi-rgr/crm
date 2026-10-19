@@ -497,8 +497,8 @@
           <input type="file" id="file-input" accept=".csv" style="display:none" />
           <button class="btn-ghost icon-btn" onclick="openKpiModal()" title="KPIs">📊</button>
           <button class="btn-ghost icon-btn" onclick="openSopModal()" title="SOP — How to use this CRM">📋</button>
-          <button class="btn-ghost icon-btn" onclick="pOpenSmsTplEditor()" title="SMS Templates">💬</button>
-          <button class="btn-ghost icon-btn" onclick="openDirectorsModal()" title="Directors">👥</button>
+          <button class="btn-ghost icon-btn" data-admin-only onclick="pOpenSmsTplEditor()" title="SMS Templates">💬</button>
+          <button class="btn-ghost icon-btn" data-admin-only onclick="openDirectorsModal()" title="Directors">👥</button>
         </div>
         <button class="btn-gold" onclick="pOpenDialer()" style="padding:14px 28px;font-size:16px;">📞 Dialer</button>
       </div>
@@ -757,6 +757,13 @@ function pUpdateAuthUI() {
   } else {
     btn.style.display = googleProvider ? '' : 'none'; chip.style.display = 'none';
   }
+  // Admin-only icons: SMS Templates (💬) and Directors (👥) are visible to Luca Rebuffi
+  // (signed in as luca-rebuffi, or not signed in — the original single-user mode).
+  // Hidden only when a different director is signed in.
+  const isOwner = !directorId || directorId === 'luca-rebuffi';
+  document.querySelectorAll('[data-admin-only]').forEach(el => {
+    el.style.display = isOwner ? '' : 'none';
+  });
 }
 async function pSignIn() {
   if (!googleProvider) { showToast('Sign-in unavailable (auth library failed to load).', 'error'); return; }
@@ -774,7 +781,6 @@ if (googleProvider) firebase.auth().onAuthStateChanged(async (u) => {
   // Reload per-director data (falls back to shared/global when unsigned)
   await pLoadDirectors();
   await pLoadSmsTemplates();
-  await pLoadQuoConfig();
 });
 else { pUpdateAuthUI(); }
 
@@ -2482,31 +2488,13 @@ document.getElementById('delete-selected-btn').addEventListener('click', deleteS
 
 // ---- Quo helpers (proxy is open-access; no auth needed) ----
 const P_QUO_PROXY_URL = 'https://script.google.com/macros/s/AKfycbw4TyScLuANH0OHOceEoWd1K4yaku98qBCkzvXRj49sSR1jM8u3DevLoPWeO3BamS8l/exec';
-/* Per-director Quo account: a signed-in director can paste their OWN proxy URL
-   (their own Apps Script deployment with their Quo API key) so texts and
-   contacts go to their Quo account. Falls back to the shared proxy above. */
-let pQuoConfig = {}; // { proxyUrl, fromNumberId } loaded from settings/quoConfig_<directorId>
-function pQuoProxyUrl() { return (pQuoConfig && pQuoConfig.proxyUrl) || P_QUO_PROXY_URL; }
-function pQuoFromNumberId() { return (pQuoConfig && pQuoConfig.fromNumberId) || ''; }
-async function pLoadQuoConfig() {
-  pQuoConfig = {};
-  if (!directorId) return;
-  try {
-    const doc = await db.collection('settings').doc('quoConfig_' + directorId).get();
-    if (doc.exists && doc.data()) pQuoConfig = { proxyUrl: doc.data().proxyUrl || '', fromNumberId: doc.data().fromNumberId || '' };
-  } catch (e) { console.error('quo config load failed', e); }
-}
-async function pSaveQuoConfig() {
-  if (!directorId) { showToast('Sign in with Google first to save your Quo account.', 'error'); return; }
-  const proxyUrl = (document.getElementById('pquo-proxy-url').value || '').trim();
-  const fromNumberId = (document.getElementById('pquo-from-id').value || '').trim();
-  try {
-    await db.collection('settings').doc('quoConfig_' + directorId).set(
-      { proxyUrl, fromNumberId, updatedAt: new Date().toISOString() }, { merge: true });
-    pQuoConfig = { proxyUrl, fromNumberId };
-    showToast('Quo account saved ✓');
-  } catch (e) { showToast((e && e.message) || 'Save failed', 'error'); }
-}
+/* ONE central proxy serves every director. It looks up the director's Quo API
+   key server-side (QUO_KEYS Script Property) via the `directorId` sent with
+   each request, plus their default sending number (QUO_FROM_NUMBERS).
+   Luca (or Athena) adds each director's key to the proxy's Script Properties
+   once during onboarding — directors never touch any of this; they just
+   sign in and everything routes to their own Quo account automatically. */
+function pQuoDirectorId() { return directorId || 'luca-rebuffi'; }
 function pEnsureQuoContact(name, phone, company) {
   try {
     const digits = digitsOnly(phone || '');
@@ -2514,12 +2502,13 @@ function pEnsureQuoContact(name, phone, company) {
     const parts = (name || '').trim().split(/\s+/).filter(Boolean);
     const body = {
       action: 'createContact',
+      directorId: pQuoDirectorId(),
       firstName: parts[0] || 'Seller',
       lastName: parts.slice(1).join(' '),
       phone: digits,
     };
     if (company) body.company = company;
-    fetch(pQuoProxyUrl(), {
+    fetch(P_QUO_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body),
@@ -2532,12 +2521,10 @@ async function pSendSmsViaQuo(phone, message) {
   if (!message || !message.trim()) throw new Error('Message is empty');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 45000);
-  const smsBody = { action: 'sendSms', to: digits, content: message.trim() };
-  const fromId = pQuoFromNumberId();
-  if (fromId) smsBody.fromNumberId = fromId;
+  const smsBody = { action: 'sendSms', directorId: pQuoDirectorId(), to: digits, content: message.trim() };
   let res;
   try {
-    res = await fetch(pQuoProxyUrl(), {
+    res = await fetch(P_QUO_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(smsBody),
@@ -2658,13 +2645,6 @@ function pInitDialerDOM() {
       <div id="psms-tpledit-who" style="font-size:12px;color:#8a97a8;margin:-6px 0 8px;"></div>
       <div class="psms-tpledit-ph">Placeholders: <code>{firstName}</code> lead's first name · <code>{name}</code> first name or "there" · <code>{nameLine}</code> "FirstName?" (used in SMS #1) · <code>{address}</code> property address</div>
       <div id="psms-tpledit-list"></div>
-      <div class="psms-tpledit-row" style="margin-top:14px;">
-        <div class="psms-tpledit-head"><b>📲 Your Quo account</b><span id="pquo-who"></span></div>
-        <div style="font-size:12px;color:#8a97a8;margin-bottom:8px;">Paste your <b>own Quo proxy URL</b> (deploy your own copy of the Quo proxy Apps Script with your Quo API key) so texts and saved contacts go to <b>your</b> Quo account. Leave blank to use the shared proxy.</div>
-        <input id="pquo-proxy-url" class="psms-tpledit" style="min-height:0;" placeholder="https://script.google.com/macros/s/…/exec">
-        <input id="pquo-from-id" class="psms-tpledit" style="min-height:0;margin-top:6px;" placeholder="From number ID (optional — defaults to your first Quo number)">
-        <div style="margin-top:8px;"><button class="btn-ghost" onclick="pSaveQuoConfig()">💾 Save Quo account</button></div>
-      </div>
       <div class="psms-foot">
         <span id="psms-tpledit-saved">Saved ✓</span>
         <div>
@@ -2947,12 +2927,6 @@ function pOpenSmsTplEditor() {
   document.getElementById('psms-tpledit-who').textContent = directorId
     ? 'Editing templates for ' + directorName + ' (saved to your account — same on all your sign-ins)'
     : 'Shared templates (not signed in — sign in with Google to keep your own)';
-  // Quo account section (per director)
-  const qw = document.getElementById('pquo-who');
-  if (qw) qw.textContent = directorId ? 'Saving to ' + directorName + "'s account" : 'Sign in with Google to save your own Quo account';
-  const pu = document.getElementById('pquo-proxy-url'), fi = document.getElementById('pquo-from-id');
-  if (pu) pu.value = (pQuoConfig && pQuoConfig.proxyUrl) || '';
-  if (fi) fi.value = (pQuoConfig && pQuoConfig.fromNumberId) || '';
   document.getElementById('psms-tpledit-sheet').classList.add('open');
 }
 function pCloseSmsTplEditor() {
