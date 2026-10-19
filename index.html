@@ -302,6 +302,18 @@
   .modal-header h2 { margin: 0; font-size: 17px; font-weight: 700; }
   .modal-close-btn { background: none; border: none; color: #8a97a8; font-size: 16px; padding: 4px; }
   .modal-body { padding: 18px 20px; }
+  .dir-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: #0f2036; border: 1px solid #22385a; border-radius: 8px; margin-bottom: 8px;
+  }
+  .dir-row.inactive { opacity: 0.55; }
+  .dir-info { flex: 1; min-width: 0; }
+  .dir-name { font-weight: 700; font-size: 14px; }
+  .dir-email { font-size: 12px; color: #8a97a8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dir-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #1a3050; color: #8a97a8; }
+  .dir-badge.off { background: #3a2a20; color: #c98a5a; }
+  .dir-act { background: none; border: 1px solid #22385a; border-radius: 6px; color: #cddaf0; font-size: 12px; padding: 5px 9px; }
+  .dir-del { background: none; border: none; color: #e07a77; font-size: 15px; padding: 4px 6px; }
   .modal-field { margin-bottom: 12px; flex: 1; min-width: 0; }
   .modal-field label { display: block; font-size: 12px; color: #8a97a8; margin-bottom: 4px; }
   .modal-field input {
@@ -486,6 +498,7 @@
           <button class="btn-ghost icon-btn" onclick="openKpiModal()" title="KPIs">📊</button>
           <button class="btn-ghost icon-btn" onclick="openSopModal()" title="SOP — How to use this CRM">📋</button>
           <button class="btn-ghost icon-btn" onclick="pOpenSmsTplEditor()" title="SMS Templates">💬</button>
+          <button class="btn-ghost icon-btn" onclick="openDirectorsModal()" title="Directors">👥</button>
         </div>
         <button class="btn-gold" onclick="pOpenDialer()" style="padding:14px 28px;font-size:16px;">📞 Dialer</button>
       </div>
@@ -565,6 +578,27 @@
     <div class="modal-actions">
       <button class="btn-ghost" id="offer-cancel">Cancel</button>
       <button class="btn-gold" id="offer-save">Save Offer</button>
+    </div>
+  </div>
+</div>
+
+<div id="directors-overlay" class="modal-overlay" style="z-index:210;">
+  <div class="modal-card" style="max-width:480px;">
+    <div class="modal-header">
+      <h2>👥 Directors</h2>
+      <button class="modal-close-btn" id="directors-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#8a97a8;margin:0 0 12px;line-height:1.5;">Whoever moves a lead to Qualified is automatically assigned as its Acquisition Director. New directors sign in with Google — their email links them to their director profile.</p>
+      <div id="directors-list"></div>
+      <div class="section-label" style="margin-top:16px;">Add Director</div>
+      <div class="modal-field"><label>Name</label><input type="text" id="dir-name" placeholder="e.g. Jane Smith" /></div>
+      <div class="modal-field"><label>Sign-in email</label><input type="email" id="dir-email" placeholder="e.g. jane@royalgroupsrealty.com" /></div>
+      <div class="modal-error" id="directors-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="directors-cancel">Close</button>
+      <button class="btn-gold" id="directors-add">+ Add Director</button>
     </div>
   </div>
 </div>
@@ -705,6 +739,9 @@ const DIRECTOR_EMAIL_MAP = {
 const DIRECTOR_NAMES = { 'luca-rebuffi': 'Luca Rebuffi' };
 function directorIdentityForEmail(email) {
   const e = String(email || '').toLowerCase().trim();
+  // Check the Firestore-managed roster first (new directors added via 👥 get sign-in mapping automatically)
+  const dyn = (directorsList || []).find(d => String(d.email || '').toLowerCase().trim() === e && d.active !== false);
+  if (dyn) return { id: dyn.id, name: dyn.name, email: e };
   const id = DIRECTOR_EMAIL_MAP[e] || ('user-' + e.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
   const name = DIRECTOR_NAMES[id] || (e ? e.split('@')[0] : 'Signed in');
   return { id, name, email: e };
@@ -735,15 +772,53 @@ if (googleProvider) firebase.auth().onAuthStateChanged(async (u) => {
   } else { directorId = null; directorName = null; }
   pUpdateAuthUI();
   // Reload per-director data (falls back to shared/global when unsigned)
+  await pLoadDirectors();
   await pLoadSmsTemplates();
   await pLoadQuoConfig();
 });
 else { pUpdateAuthUI(); }
 
-/* ---------------- Config: statuses & call outcomes ---------------- */
-// The single source of truth for who can be assigned as Acquisition Director.
-// Add a name here and it automatically shows up in every filter and every lead's director select.
-const DIRECTORS = ['Luca Rebuffi', 'Jalen Albright', 'Salena Carter', 'Ricky Roland', 'Tony Oddo', 'Ali Layton'];
+/* ---------------- Director roster (Firestore-backed) ----------------
+   The single source of truth for who can be assigned as Acquisition Director.
+   Managed via the 👥 Directors header button; stored at settings/directors.
+   Add a director there and they automatically show up in every filter and
+   every lead's director select, and their sign-in email maps to them. */
+const DEFAULT_DIRECTOR_SEED = [
+  { id: 'luca-rebuffi',   name: 'Luca Rebuffi',   email: 'luca.rebuffi@royalgroupsrealty.com', active: true },
+  { id: 'jalen-albright', name: 'Jalen Albright', email: '', active: true },
+  { id: 'salena-carter',  name: 'Salena Carter',  email: '', active: true },
+  { id: 'ricky-roland',   name: 'Ricky Roland',   email: '', active: true },
+  { id: 'tony-oddo',      name: 'Tony Oddo',      email: '', active: true },
+  { id: 'ali-layton',     name: 'Ali Layton',     email: '', active: true },
+];
+let directorsList = [];
+function directorNames() { return directorsList.filter(d => d.active !== false).map(d => d.name); }
+function populateDirectorFilters() {
+  const names = directorNames();
+  [['director-filter'], ['agenda-director-filter']].forEach(([fid]) => {
+    const sel = document.getElementById(fid);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All directors</option>' +
+      names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+    if (names.includes(cur)) sel.value = cur;
+  });
+}
+async function pLoadDirectors() {
+  try {
+    const doc = await db.collection('settings').doc('directors').get();
+    if (doc.exists && doc.data() && Array.isArray(doc.data().directors) && doc.data().directors.length) {
+      directorsList = doc.data().directors;
+    } else {
+      directorsList = DEFAULT_DIRECTOR_SEED.map(d => ({ ...d, createdAt: new Date().toISOString() }));
+      db.collection('settings').doc('directors')
+        .set({ directors: directorsList, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+    }
+  } catch (e) { directorsList = DEFAULT_DIRECTOR_SEED.map(d => ({ ...d })); }
+  populateDirectorFilters();
+}
+// Display name of whoever is driving right now (signed-in director, else Luca).
+function currentDirectorDisplayName() { return directorName || 'Luca Rebuffi'; }
 // Stages where a lead with no open task should show the "no task scheduled" warning on its collapsed row.
 const DORMANT_INDICATOR_STAGES = ['callback', 'followup'];
 
@@ -853,15 +928,8 @@ function startListening() {
     console.error(err);
   });
 }
-DIRECTORS.forEach(d => {
-  const opt1 = document.createElement('option');
-  opt1.value = d; opt1.textContent = d;
-  document.getElementById('director-filter').appendChild(opt1);
-
-  const opt2 = document.createElement('option');
-  opt2.value = d; opt2.textContent = d;
-  document.getElementById('agenda-director-filter').appendChild(opt2);
-});
+// Director filter dropdowns are populated from the Firestore roster (see pLoadDirectors).
+// Boot sequence calls pLoadDirectors() which fills them in.
 
 const urlParams = new URLSearchParams(window.location.search);
 const isReportMode = urlParams.get('report') === '1';
@@ -1021,7 +1089,7 @@ function renderReportFeed() {
     filtered = allActivity.filter(a => new Date(a.ts) >= cutoff);
   }
   const feed = filtered.slice(0, 100);
-  const actionLabels = { call_logged: 'Logged a call', dialer_dispo: 'Dialer disposition', status_changed: 'Changed stage', dial_clicked: 'Clicked to dial', sms_sent: 'Sent text', offer_submitted: 'Submitted offer', lead_added: 'Added lead' };
+  const actionLabels = { call_logged: 'Logged a call', dialer_dispo: 'Dialer disposition', status_changed: 'Changed stage', dial_clicked: 'Clicked to dial', sms_sent: 'Sent text', offer_submitted: 'Submitted offer', lead_added: 'Added lead', auto_assigned: 'Auto-assigned director' };
   document.getElementById('report-feed').innerHTML = feed.map(a => `
     <div class="feed-row">
       <span class="feed-time">${new Date(a.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
@@ -1372,6 +1440,18 @@ function logActivity(leadId, action, extra) {
 function updateStatus(id, status) {
   const upd = { status, subStage: '' };
   if (status === 'under_contract') upd.underContractAt = new Date().toISOString();
+  // Auto-assign: whoever moves a lead to Qualified becomes its Acquisition Director.
+  if (status === 'callback') {
+    const assignName = currentDirectorDisplayName();
+    upd.acquisitionDirector = assignName;
+    const lead = leads.find(l => l.id === id);
+    if (lead) lead.acquisitionDirector = assignName;
+    const at = new Date().toISOString();
+    const assignEntry = { at, outcome: 'Auto-assigned', text: `Moved to Qualified — auto-assigned to ${assignName}` };
+    if (directorId) { assignEntry.byId = directorId; assignEntry.byName = directorName; }
+    upd.notes = firebase.firestore.FieldValue.arrayUnion(assignEntry);
+    logActivity(id, 'auto_assigned', { director: assignName });
+  }
   leadsRef.doc(id).update(upd).catch(() => showToast('Could not update status.', 'error'));
   logActivity(id, 'status_changed', { newStatus: status });
 }
@@ -1434,6 +1514,7 @@ function saveOffer() {
     by: lead.acquisitionDirector || '',
     createdAt: new Date().toISOString(),
   };
+  if (directorId) { offer.byId = directorId; offer.byName = directorName; }
   leadsRef.doc(lead.id).update({ offers: [...(lead.offers || []), offer] })
     .then(() => showToast('Offer saved.', 'success'))
     .catch(() => showToast('Could not save that offer.', 'error'));
@@ -1488,6 +1569,66 @@ document.getElementById('offer-close').addEventListener('click', closeOfferModal
 document.getElementById('offer-cancel').addEventListener('click', closeOfferModal);
 document.getElementById('offer-save').addEventListener('click', saveOffer);
 document.getElementById('offer-overlay').addEventListener('click', e => { if (e.target.id === 'offer-overlay') closeOfferModal(); });
+
+/* ---------------- Directors management (👥 header button) ---------------- */
+function openDirectorsModal() {
+  renderDirectorsList();
+  document.getElementById('directors-error').textContent = '';
+  document.getElementById('directors-overlay').classList.add('open');
+}
+function closeDirectorsModal() { document.getElementById('directors-overlay').classList.remove('open'); }
+function renderDirectorsList() {
+  const el = document.getElementById('directors-list');
+  el.innerHTML = directorsList.map(d => `
+    <div class="dir-row${d.active === false ? ' inactive' : ''}">
+      <div class="dir-info">
+        <div class="dir-name">${escapeHtml(d.name)}${d.id === 'luca-rebuffi' ? ' <span class="dir-badge">owner</span>' : ''}</div>
+        <div class="dir-email">${escapeHtml(d.email || 'no sign-in email set')}</div>
+      </div>
+      ${d.active === false ? '<span class="dir-badge off">inactive</span>' : ''}
+      <button class="dir-act" onclick="pToggleDirectorActive('${d.id}')">${d.active === false ? 'Activate' : 'Deactivate'}</button>
+      ${d.id === 'luca-rebuffi' ? '' : `<button class="dir-del" onclick="pRemoveDirector('${d.id}')" title="Remove">🗑</button>`}
+    </div>`).join('') || '<div class="empty-state">No directors yet.</div>';
+}
+async function pSaveDirectors() {
+  try {
+    await db.collection('settings').doc('directors')
+      .set({ directors: directorsList, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (e) { showToast('Could not save directors.', 'error'); }
+  populateDirectorFilters();
+}
+function pAddDirector() {
+  const name = (document.getElementById('dir-name').value || '').trim();
+  const email = (document.getElementById('dir-email').value || '').trim().toLowerCase();
+  const err = document.getElementById('directors-error');
+  if (!name) { err.textContent = 'Enter the director\'s name.'; return; }
+  if (directorsList.some(d => d.name.toLowerCase() === name.toLowerCase())) { err.textContent = 'That name is already on the roster.'; return; }
+  if (email && directorsList.some(d => String(d.email || '').toLowerCase() === email)) { err.textContent = 'That email is already on the roster.'; return; }
+  const id = 'dir-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '-' + Date.now().toString(36);
+  directorsList.push({ id, name, email, active: true, createdAt: new Date().toISOString() });
+  document.getElementById('dir-name').value = '';
+  document.getElementById('dir-email').value = '';
+  err.textContent = '';
+  pSaveDirectors().then(renderDirectorsList);
+  showToast(`${name} added ✓`, 'success');
+}
+function pToggleDirectorActive(id) {
+  const d = directorsList.find(x => x.id === id);
+  if (!d) return;
+  d.active = d.active === false ? true : false;
+  pSaveDirectors().then(renderDirectorsList);
+}
+function pRemoveDirector(id) {
+  const d = directorsList.find(x => x.id === id);
+  if (!d || d.id === 'luca-rebuffi') return;
+  if (!confirm(`Remove ${d.name} from the directors roster? Their past calls and offers stay attributed.`)) return;
+  directorsList = directorsList.filter(x => x.id !== id);
+  pSaveDirectors().then(renderDirectorsList);
+}
+document.getElementById('directors-close').addEventListener('click', closeDirectorsModal);
+document.getElementById('directors-cancel').addEventListener('click', closeDirectorsModal);
+document.getElementById('directors-add').addEventListener('click', pAddDirector);
+document.getElementById('directors-overlay').addEventListener('click', e => { if (e.target.id === 'directors-overlay') closeDirectorsModal(); });
 
 function updateSubStage(id, subStage) {
   leadsRef.doc(id).update({ subStage }).catch(() => showToast('Could not update sub-stage.', 'error'));
@@ -1662,15 +1803,30 @@ function doLogCall(id) {
     text: (draft.text || '').trim(),
   };
   if (directorId) { entry.byId = directorId; entry.byName = directorName; }
-  leadsRef.doc(id).update({
+  const newStatus = outcome ? outcome.status : STATUS_MAP.new.id;
+  // Auto-assign: whoever qualifies the lead becomes its Acquisition Director.
+  let assignEntry = null, assignName = null;
+  if (newStatus === 'callback') {
+    assignName = currentDirectorDisplayName();
+    const lead = leads.find(l => l.id === id);
+    if (lead) lead.acquisitionDirector = assignName;
+    assignEntry = { at: entry.at, outcome: 'Auto-assigned', text: `Qualified — auto-assigned to ${assignName}` };
+    if (directorId) { assignEntry.byId = directorId; assignEntry.byName = directorName; }
+  }
+  const upd = {
     callAttempts: firebase.firestore.FieldValue.increment(1),
     lastCalledAt: entry.at,
-    status: outcome ? outcome.status : STATUS_MAP.new.id,
-    notes: firebase.firestore.FieldValue.arrayUnion(entry),
-  }).then(() => {
+    status: newStatus,
+    notes: assignEntry
+      ? firebase.firestore.FieldValue.arrayUnion(entry, assignEntry)
+      : firebase.firestore.FieldValue.arrayUnion(entry),
+  };
+  if (assignName) upd.acquisitionDirector = assignName;
+  leadsRef.doc(id).update(upd).then(() => {
     drafts[id] = { outcome: draft.outcome, text: '' };
   }).catch(() => showToast('Could not log that call.', 'error'));
   logActivity(id, 'call_logged', { outcome: entry.outcome });
+  if (assignName) logActivity(id, 'auto_assigned', { director: assignName });
 }
 
 /* ---------------- Filtering / sorting ---------------- */
@@ -1949,7 +2105,7 @@ function renderCard(lead) {
           <label>Acquisition Director</label>
           <select data-director-select="${lead.id}">
             <option value="" ${!lead.acquisitionDirector ? 'selected' : ''}>Unassigned</option>
-            ${DIRECTORS.map(d => `<option value="${escapeHtml(d)}" ${lead.acquisitionDirector===d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+            ${directorNames().map(d => `<option value="${escapeHtml(d)}" ${lead.acquisitionDirector===d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
           </select>
         </div>
 
@@ -2645,20 +2801,31 @@ async function pCommitDispo(oc, lead, noteText, task) {
   lead.cadenceStep = newStep;
   lead.cycleStartDate = cycleStart;
   if (task) lead.tasks = (lead.tasks || []).concat([task]);
+  // Auto-assign: whoever qualifies the lead becomes its Acquisition Director (no manual self-assign step).
+  let assignEntry = null, assignName = null;
+  if (oc.id === 'qualified') {
+    assignName = currentDirectorDisplayName();
+    lead.acquisitionDirector = assignName; // optimistic local update
+    assignEntry = { at, outcome: 'Auto-assigned', text: `Qualified — auto-assigned to ${assignName}` };
+    if (directorId) { assignEntry.byId = directorId; assignEntry.byName = directorName; }
+  }
   try {
     const upd = {
       callAttempts: firebase.firestore.FieldValue.increment(1),
       lastCalledAt: at,
       status: oc.status,
-      notes: firebase.firestore.FieldValue.arrayUnion(entry),
+      notes: assignEntry
+        ? firebase.firestore.FieldValue.arrayUnion(entry, assignEntry)
+        : firebase.firestore.FieldValue.arrayUnion(entry),
       cadenceStep: newStep,
       cycleStartDate: cycleStart,
     };
+    if (assignName) upd.acquisitionDirector = assignName;
     if (task) upd.tasks = firebase.firestore.FieldValue.arrayUnion(task);
     await leadsRef.doc(lead.id).update(upd);
   } catch (e) { showToast('Could not save disposition', 'error'); return; }
   pDialer.stats.called++;
-  if (oc.id === 'qualified') pDialer.stats.qualified++;
+  if (oc.id === 'qualified') { pDialer.stats.qualified++; logActivity(lead.id, 'auto_assigned', { director: assignName }); }
   logActivity(lead.id, 'dialer_dispo', { outcome: entry.outcome });
   // rebuild queue; the lead stays only if still new/trying
   pDialer.queue = pBuildQueue();
@@ -2973,6 +3140,8 @@ function renderSop() {
 })();
 // Load editable SMS templates from Firestore (fail-open: hardcoded defaults are used until loaded)
 pLoadSmsTemplates();
+// Load the director roster (fail-open: seeded defaults; populates director filters)
+pLoadDirectors();
 </script>
 
 <script>
