@@ -1173,19 +1173,21 @@ function renderReport(opts) {
   const calls = acts.filter(a => a.action === 'call_logged' || a.action === 'dialer_dispo' || a.action === 'dial_clicked').length;
   const sms = acts.filter(a => a.action === 'sms_sent').length;
   const offers = acts.filter(a => a.action === 'offer_submitted').length;
-  const qualified = acts.filter(a => a.action === 'status_changed' && a.newStatus === 'callback').length;
+  const movedTo = sid => acts.filter(a => a.action === 'status_changed' && a.newStatus === sid).length;
+  const qualified = movedTo('callback');
+  const followups = movedTo('followup');
+  const underContract = movedTo('under_contract');
   const conv = calls ? Math.round((qualified / calls) * 100) : 0;
-  const stageCount = id => allReportLeads.filter(l => l.status === id).length;
   const cardsRow1 = [
     [calls, 'Calls Logged', '#5b8fd4'],
     [sms, 'Texts Sent', '#7fb3ff'],
-    [stageCount('callback'), 'Qualified Leads', '#4caf82'],
+    [qualified, 'Qualified Leads', '#4caf82'],
     [conv + '%', 'Call \u2192 Qualified', '#4caf82'],
-    [stageCount('followup'), 'Follow Ups', '#c084fc'],
+    [followups, 'Follow Ups', '#c084fc'],
   ];
   const cardsRow2 = [
     [offers, 'Offers Submitted', '#d4a843'],
-    [stageCount('under_contract'), 'Under Contract', '#d4a843'],
+    [underContract, 'Under Contract', '#d4a843'],
   ];
   const rangeLabel = reportRangeDays === 0 ? 'All Time' : reportRangeDays === 1 ? 'Today' : 'Last ' + reportRangeDays + ' Days';
   const cardHtml = c => '<div class="kpi-card"><span class="kpi-num" style="color:' + c[2] + ';">' + c[0] + '</span><span class="kpi-label">' + c[1] + '</span></div>';
