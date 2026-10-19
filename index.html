@@ -1176,19 +1176,22 @@ function renderReport(opts) {
   const qualified = acts.filter(a => a.action === 'status_changed' && a.newStatus === 'callback').length;
   const conv = calls ? Math.round((qualified / calls) * 100) : 0;
   const stageCount = id => allReportLeads.filter(l => l.status === id).length;
-  const cards = [
-    [stageCount('callback'), 'Qualified Leads', '#4caf82'],
-    [stageCount('followup'), 'Follow Ups', '#c084fc'],
-    [stageCount('under_contract'), 'Under Contract', '#d4a843'],
+  const cardsRow1 = [
     [calls, 'Calls Logged', '#5b8fd4'],
     [sms, 'Texts Sent', '#7fb3ff'],
-    [offers, 'Offers Submitted', '#d4a843'],
+    [stageCount('callback'), 'Qualified Leads', '#4caf82'],
     [conv + '%', 'Call \u2192 Qualified', '#4caf82'],
+    [stageCount('followup'), 'Follow Ups', '#c084fc'],
+  ];
+  const cardsRow2 = [
+    [offers, 'Offers Submitted', '#d4a843'],
+    [stageCount('under_contract'), 'Under Contract', '#d4a843'],
   ];
   const rangeLabel = reportRangeDays === 0 ? 'All Time' : reportRangeDays === 1 ? 'Today' : 'Last ' + reportRangeDays + ' Days';
+  const cardHtml = c => '<div class="kpi-card"><span class="kpi-num" style="color:' + c[2] + ';">' + c[0] + '</span><span class="kpi-label">' + c[1] + '</span></div>';
   document.getElementById(bodyId).innerHTML =
-    '<div class="kpi-cards">' + cards.map(c =>
-      '<div class="kpi-card"><span class="kpi-num" style="color:' + c[2] + ';">' + c[0] + '</span><span class="kpi-label">' + c[1] + '</span></div>').join('') + '</div>' +
+    '<div class="kpi-cards">' + cardsRow1.map(cardHtml).join('') + '</div>' +
+    '<div class="kpi-cards" style="justify-content:center;">' + cardsRow2.map(cardHtml).join('') + '</div>' +
     '<div class="kpi-grid">' +
     '<div class="kpi-panel"><h3>\uD83D\uDCC8 Calls Per Day</h3><div class="kpi-sub">' + rangeLabel + ' \u00B7 calls logged per day</div><div class="chart-wrap"><canvas id="' + idPrefix + 'kpi-calls-chart"></canvas></div></div>' +
     '<div class="kpi-panel"><h3>\uD83D\uDCDE By Director</h3><div class="kpi-sub">' + rangeLabel + ' \u00B7 calls, texts, offers & stage changes per director</div><div id="' + idPrefix + 'report-directors"></div></div>' +
@@ -1268,9 +1271,7 @@ function renderReportFeed() {
 }
 
 /* ---------------- KPI modal (📊) — merged KPIs + Offers ---------------- */
-let kpiModalDataLoaded = false;
 async function ensureKpiModalData() {
-  if (kpiModalDataLoaded) return;
   try {
     const snapshot = await db.collection('activityLog').orderBy('ts', 'desc').limit(5000).get();
     allActivity = snapshot.docs.map(d => d.data());
@@ -1279,7 +1280,6 @@ async function ensureKpiModalData() {
     const lsnap = await db.collection('leads').get();
     allReportLeads = lsnap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (e) { allReportLeads = []; }
-  kpiModalDataLoaded = true;
 }
 async function openKpiModal() {
   document.getElementById('kpi-modal-overlay').classList.add('open');
