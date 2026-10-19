@@ -1808,6 +1808,32 @@ function logCall(id) {
   doLogCall(id);
 }
 
+/* Auto-log a call when the user taps a tel: link to dial. Fire-and-forget —
+   does not block the dial. Guarded against double-count when a dialer
+   disposition follows within 5 minutes (the disposition is the canonical log). */
+let _lastDialLog = { leadId: null, at: 0 };
+function logDialClick(leadId) {
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  const at = new Date().toISOString();
+  // optimistic local update so the "N calls" count refreshes instantly
+  lead.callAttempts = (lead.callAttempts || 0) + 1;
+  lead.lastCalledAt = at;
+  _lastDialLog = { leadId, at: Date.now() };
+  const entry = { at, outcome: 'Dialed', text: '' };
+  if (directorId) { entry.byId = directorId; entry.byName = directorName; }
+  // fire-and-forget Firestore write — never block the dial
+  try {
+    leadsRef.doc(leadId).update({
+      callAttempts: firebase.firestore.FieldValue.increment(1),
+      lastCalledAt: at,
+      notes: firebase.firestore.FieldValue.arrayUnion(entry),
+    }).catch(() => {});
+  } catch (e) {}
+  try { logActivity(leadId, 'dial_clicked', { byDirector: directorName }); } catch (e) {}
+  // refresh the lead list UI to show the new count
+  try { if (typeof render === 'function') render(); } catch (e) {}
+}
 function doLogCall(id) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
   const outcome = OUTCOMES.find(o => o.id === draft.outcome);
@@ -2241,7 +2267,7 @@ function renderCard(lead) {
           </div>
           <div class="lead-address">📍 ${escapeHtml(lead.address)}${lead.address ? ', ' : ''}${escapeHtml(lead.city)} ${escapeHtml(lead.state)} ${escapeHtml(lead.zip)}</div>
         </div>
-        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}">📞 ${formatPhone(lead.phone)}</a>
+        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="logDialClick('${lead.id}')">📞 ${formatPhone(lead.phone)}</a>
         <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
           <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/>
@@ -2750,7 +2776,7 @@ function pRenderDialerCard() {
     </div>
     ${pCadenceTrackerHTML(lead)}
     ${phone ? `
-      <a class="pdial-call" href="tel:${digits}" onclick="pEnsureQuoContact('${escapeHtml(name).replace(/'/g, "\\'")}', '${digits}', '${escapeHtml(addr).replace(/'/g, "\\'")}')">📞 ${escapeHtml(formatPhone(phone))}</a>
+      <a class="pdial-call" href="tel:${digits}" onclick="logDialClick('${lead.id}');pEnsureQuoContact('${escapeHtml(name).replace(/'/g, "\\'")}', '${digits}', '${escapeHtml(addr).replace(/'/g, "\\'")}')">📞 ${escapeHtml(formatPhone(phone))}</a>
       <button class="pdial-text" onclick="pOpenSmsSheet('${lead.id}', ${(stepDef.type === 'sms' || stepDef.type === 'call_sms') && stepDef.smsKind ? `'${stepDef.smsKind}'` : 'null'})">💬 Text</button>
     ` : '<div class="pdialer-nophone">No phone on file</div>'}
     <textarea id="pdialer-notes" class="pdialer-notes" placeholder="Call notes… (required for Qualified / Follow Up Scheduled)"></textarea>
@@ -2785,7 +2811,9 @@ async function pCommitDispo(oc, lead, noteText, task) {
   // optimistic local update so the queue rebuilds instantly
   lead.status = oc.status;
   lead.lastCalledAt = at;
-  lead.callAttempts = (lead.callAttempts || 0) + 1;
+  // skip the increment if logDialClick already counted this dial (< 5 min ago)
+  const dialAlreadyLogged = (typeof _lastDialLog !== 'undefined' && _lastDialLog.leadId === lead.id && Date.now() - _lastDialLog.at < 300000);
+  if (!dialAlreadyLogged) lead.callAttempts = (lead.callAttempts || 0) + 1;
   lead.cadenceStep = newStep;
   lead.cycleStartDate = cycleStart;
   if (task) lead.tasks = (lead.tasks || []).concat([task]);
@@ -2799,7 +2827,7 @@ async function pCommitDispo(oc, lead, noteText, task) {
   }
   try {
     const upd = {
-      callAttempts: firebase.firestore.FieldValue.increment(1),
+      ...(dialAlreadyLogged ? {} : { callAttempts: firebase.firestore.FieldValue.increment(1) }),
       lastCalledAt: at,
       status: oc.status,
       notes: assignEntry
