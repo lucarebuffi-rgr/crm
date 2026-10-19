@@ -290,7 +290,18 @@
     z-index: 100; align-items: center; justify-content: center; padding: 20px;
     backdrop-filter: blur(3px);
   }
-  .modal-overlay.open { display: flex; }
+    .modal-overlay.open { display: flex; }
+
+  /* Sign-in gate: full-screen blocker shown until the user signs in */
+  #signin-gate {
+    display: flex; position: fixed; inset: 0; z-index: 1000;
+    background: #0d1b2e; align-items: center; justify-content: center;
+    padding: 20px; text-align: center;
+  }
+  #signin-gate.hidden { display: none; }
+  .gate-card { max-width: 380px; }
+  .gate-card h1 { color: #e8c476; font-size: 26px; margin: 0 0 8px; }
+  .gate-card p { color: #8a97a8; font-size: 14px; margin: 0 0 24px; }
   .modal-card {
     background: #142640; border: 1px solid #22385a; border-radius: 14px; width: 100%; max-width: 420px;
     max-height: 90vh; overflow-y: auto;
@@ -481,6 +492,16 @@
 </style>
 </head>
 <body>
+
+<!-- ============ SIGN-IN GATE (blocks the CRM until signed in) ============ -->
+<div id="signin-gate">
+  <div class="gate-card">
+    <div style="font-size:44px; margin-bottom:14px;">&#128274;</div>
+    <h1>GA Probates CRM</h1>
+    <p>You must sign in to access this CRM</p>
+    <button class="btn-gold" onclick="pSignIn()" style="padding:14px 32px;font-size:16px;">Sign in with Google</button>
+  </div>
+</div>
 
 <!-- ============ APP SCREEN ============ -->
 <div id="app-screen">
@@ -758,6 +779,9 @@ const googleProvider = (typeof firebase.auth === 'function') ? new firebase.auth
 let currentUser = null, directorId = null, directorName = null;
 function pUpdateAuthUI() {
   const btn = document.getElementById('pauth-btn'), chip = document.getElementById('pauth-chip');
+  // Sign-in gate: block ALL CRM access until the user signs in.
+  const gate = document.getElementById('signin-gate');
+  if (gate) gate.classList.toggle('hidden', !!currentUser);
   if (!btn || !chip) return;
   if (currentUser) {
     btn.style.display = 'none'; chip.style.display = '';
