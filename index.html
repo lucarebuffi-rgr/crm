@@ -1058,11 +1058,9 @@ function renderReportDirectors(acts, idPrefix) {
   idPrefix = idPrefix || '';
   const byDirector = {};
   acts.forEach(a => {
-    const d = a.byDirector || a.director || 'Unassigned';
-    if (d === 'Not signed in' && a.director && a.director !== 'Unassigned') {
-      // Attribute unsigned activity to the assigned director when known
-    }
-    const key = (d === 'Not signed in' && a.director && a.director !== 'Unassigned') ? a.director : d;
+    // Show WHO did the action (the signed-in user) — that's the point of logins.
+    // Fall back to 'Unknown' for pre-login activity where we can't know who it was.
+    const key = a.byDirector && a.byDirector !== 'Not signed in' ? a.byDirector : 'Unknown';
     if (!byDirector[key]) byDirector[key] = { calls: 0, sms_sent: 0, offer_submitted: 0, status_changed: 0, dial_clicked: 0 };
     if (a.action === 'call_logged' || a.action === 'dialer_dispo') byDirector[key].calls++;
     else if (byDirector[key][a.action] !== undefined) byDirector[key][a.action]++;
