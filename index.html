@@ -1586,9 +1586,24 @@ function renderDirectorsList() {
         <div class="dir-email">${escapeHtml(d.email || 'no sign-in email set')}</div>
       </div>
       ${d.active === false ? '<span class="dir-badge off">inactive</span>' : ''}
+      <button class="dir-act" onclick="pEditDirectorEmail('${d.id}')" title="Set sign-in email">✏️</button>
       <button class="dir-act" onclick="pToggleDirectorActive('${d.id}')">${d.active === false ? 'Activate' : 'Deactivate'}</button>
       ${d.id === 'luca-rebuffi' ? '' : `<button class="dir-del" onclick="pRemoveDirector('${d.id}')" title="Remove">🗑</button>`}
     </div>`).join('') || '<div class="empty-state">No directors yet.</div>';
+}
+function pEditDirectorEmail(id) {
+  const d = directorsList.find(x => x.id === id);
+  if (!d) return;
+  const email = prompt(`Sign-in email for ${d.name}:`, d.email || '');
+  if (email === null) return; // cancelled
+  const clean = email.trim().toLowerCase();
+  if (clean && directorsList.some(x => x.id !== id && String(x.email || '').toLowerCase() === clean)) {
+    showToast('That email is already on the roster.', 'error');
+    return;
+  }
+  d.email = clean;
+  pSaveDirectors().then(renderDirectorsList);
+  showToast('Saved ✓');
 }
 async function pSaveDirectors() {
   try {
