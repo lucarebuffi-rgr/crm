@@ -396,6 +396,16 @@
   #psms-text { width: 100%; min-height: 90px; background: #0b1626; border: 1px solid #22385a; border-radius: 10px; color: #e9edf3; font-size: 15px; padding: 10px 12px; resize: vertical; box-sizing: border-box; margin-bottom: 10px; }
   .psms-foot { display: flex; justify-content: flex-end; }
   .psms-foot > div { display: flex; gap: 8px; }
+  /* SMS template editor */
+  .psms-tpledit-panel { max-height: 92vh; overflow-y: auto; }
+  .psms-tpledit-row { margin-bottom: 12px; }
+  .psms-tpledit-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .psms-tpledit-head b { color: #e8c476; font-size: 14px; }
+  .psms-tpledit-head span { color: #8a97a8; font-size: 12px; }
+  .psms-tpledit { width: 100%; min-height: 72px; background: #0b1626; border: 1px solid #22385a; border-radius: 10px; color: #e9edf3; font-size: 14px; padding: 10px 12px; resize: vertical; box-sizing: border-box; font-family: inherit; }
+  .psms-tpledit-ph { font-size: 12px; color: #8a97a8; margin: 4px 0 12px; line-height: 1.5; }
+  .psms-tpledit-ph code { background: #142640; padding: 1px 6px; border-radius: 6px; color: #e8c476; font-size: 12px; }
+  #psms-tpledit-saved { display: none; color: #4caf82; font-weight: 700; font-size: 14px; margin-right: auto; align-self: center; }
   .pfu-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .pfu-chip { background: #142640; border: 1px solid #22385a; color: #e9edf3; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 48px; }
   .pfu-chip.sel { border-color: #d4a843; background: rgba(212,168,67,.15); color: #e9c874; }
@@ -472,6 +482,7 @@
         <input type="file" id="file-input" accept=".csv" style="display:none" />
         <a class="btn-ghost icon-btn" href="?report=1" target="_blank" rel="noopener" title="KPI Report">📈</a>
         <a class="btn-ghost icon-btn" href="?sop=1" target="_blank" rel="noopener" title="SOP — How to use this CRM">📋</a>
+        <button class="btn-ghost icon-btn" onclick="pOpenSmsTplEditor()" title="SMS Templates">💬</button>
       </div>
     </div>
   </div>
@@ -2288,6 +2299,22 @@ function pInitDialerDOM() {
     </div>
   </div>
 
+  <div id="psms-tpledit-sheet" class="psms-sheet">
+    <div class="psms-backdrop" onclick="pCloseSmsTplEditor()"></div>
+    <div class="psms-panel psms-tpledit-panel">
+      <h3>💬 SMS Templates</h3>
+      <div class="psms-tpledit-ph">Placeholders: <code>{firstName}</code> lead's first name · <code>{name}</code> first name or "there" · <code>{nameLine}</code> "FirstName?" (used in SMS #1) · <code>{address}</code> property address</div>
+      <div id="psms-tpledit-list"></div>
+      <div class="psms-foot">
+        <span id="psms-tpledit-saved">Saved ✓</span>
+        <div>
+          <button class="btn-ghost" onclick="pCloseSmsTplEditor()">Cancel</button>
+          <button class="btn-gold" id="psms-tpledit-save" onclick="pSaveSmsTemplates()">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="pfu-sheet" class="psms-sheet">
     <div class="psms-backdrop" onclick="pCloseFollowupSheet()"></div>
     <div class="psms-panel">
@@ -2487,18 +2514,74 @@ async function pConfirmFollowup() {
   showToast('Follow-up scheduled for ' + date);
 }
 
+// ---- SMS templates (editable via the 💬 header button; stored in Firestore settings/smsTemplates) ----
+const SMS_TPL_ORDER = [
+  ['intro', 'SMS #1', 'Day 1 — intro'],
+  ['day2',  'SMS #2', 'Day 2 — follow-up'],
+  ['day4',  'SMS #3', 'Day 4 — check-in'],
+  ['day7',  'SMS #4', 'Day 7 — final touch'],
+];
+const DEFAULT_SMS_TEMPLATES = {
+  intro: "This is Luca... I'm looking to speak with the owner of {address}.\n{nameLine}",
+  day2:  "Hey {name}, Luca here again. Just wanted to make sure you saw my last text?",
+  day4:  "Hi {name}, not trying to bother you.. simply wanted to see if you were looking to sell {address}?",
+  day7:  "Hopefully I haven't done anything to upset you {name}, and that's why you ignored me.. anyways, if you ever end up selling {address}, please call me.",
+};
+let pSmsTemplates = {}; // overrides loaded from Firestore; empty = defaults
+function pSmsTplRaw(kind) { return (pSmsTemplates && pSmsTemplates[kind]) || DEFAULT_SMS_TEMPLATES[kind] || ''; }
+function pFillSms(tpl, lead) {
+  const firstName = (lead.firstName || '').trim();
+  const addr = (lead.address || '').trim() || 'the property';
+  const name = firstName || 'there';
+  return String(tpl)
+    .split('{firstName}').join(firstName)
+    .split('{name}').join(name)
+    .split('{nameLine}').join(firstName ? firstName + '?' : '')
+    .split('{address}').join(addr)
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+function pSmsTemplate(kind, lead) {
+  return pFillSms(pSmsTplRaw(kind), lead);
+}
+async function pLoadSmsTemplates() {
+  try {
+    const doc = await db.collection('settings').doc('smsTemplates').get();
+    if (doc.exists && doc.data() && doc.data().templates) pSmsTemplates = doc.data().templates || {};
+  } catch (e) { console.error('sms templates load failed', e); }
+}
+// ---- SMS template editor ----
+function pOpenSmsTplEditor() {
+  document.getElementById('psms-tpledit-list').innerHTML = SMS_TPL_ORDER.map(([k, label, sub]) => `
+    <div class="psms-tpledit-row">
+      <div class="psms-tpledit-head"><b>${escapeHtml(label)}</b><span>${escapeHtml(sub)}</span></div>
+      <textarea id="psms-tpledit-${k}" class="psms-tpledit">${escapeHtml(pSmsTplRaw(k))}</textarea>
+    </div>`).join('');
+  document.getElementById('psms-tpledit-saved').style.display = 'none';
+  document.getElementById('psms-tpledit-sheet').classList.add('open');
+}
+function pCloseSmsTplEditor() {
+  document.getElementById('psms-tpledit-sheet').classList.remove('open');
+}
+async function pSaveSmsTemplates() {
+  const btn = document.getElementById('psms-tpledit-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const templates = {};
+    for (const [k] of SMS_TPL_ORDER) templates[k] = document.getElementById('psms-tpledit-' + k).value;
+    await db.collection('settings').doc('smsTemplates').set(
+      { templates, updatedAt: new Date().toISOString() }, { merge: true });
+    pSmsTemplates = templates;
+    document.getElementById('psms-tpledit-saved').style.display = 'block';
+    showToast('SMS templates saved ✓');
+  } catch (e) {
+    showToast(e.message || 'Save failed', 'error');
+  }
+  btn.disabled = false; btn.textContent = '💾 Save';
+}
 // ---- SMS sheet ----
 let pSmsLeadId = null;
-function pSmsTemplate(kind, lead) {
-  const firstName = (lead.firstName || '').trim();
-  const name = firstName || 'there';
-  const addr = lead.address || 'the property';
-  if (kind === 'intro') return `This is Luca... I'm looking to speak with the owner of ${addr}.` + (firstName ? `\n${firstName}?` : '');
-  if (kind === 'day2')  return `Hey ${name}, Luca here again. Just wanted to make sure you saw my last text?`;
-  if (kind === 'day4')  return `Hi ${name}, not trying to bother you.. simply wanted to see if you were looking to sell ${addr}?`;
-  if (kind === 'day7')  return `Hopefully I haven't done anything to upset you ${name}, and that's why you ignored me.. anyways, if you ever end up selling ${addr}, please call me.`;
-  return '';
-}
 function pOpenSmsSheet(leadId, prefill) {
   const lead = leads.find(l => l.id === leadId);
   if (!lead) return;
@@ -2672,6 +2755,8 @@ function renderSop() {
     renderSop();
   }
 })();
+// Load editable SMS templates from Firestore (fail-open: hardcoded defaults are used until loaded)
+pLoadSmsTemplates();
 </script>
 
 <script>
