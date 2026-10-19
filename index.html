@@ -2553,6 +2553,8 @@ async function pLoadSmsTemplates() {
 }
 // ---- SMS template editor ----
 function pOpenSmsTplEditor() {
+  // The editor sheet lives in the dialer DOM; ensure it's initialized first
+  if (!document.getElementById('psms-tpledit-sheet') && typeof pInitDialerDOM === 'function') pInitDialerDOM();
   document.getElementById('psms-tpledit-list').innerHTML = SMS_TPL_ORDER.map(([k, label, sub]) => `
     <div class="psms-tpledit-row">
       <div class="psms-tpledit-head"><b>${escapeHtml(label)}</b><span>${escapeHtml(sub)}</span></div>
