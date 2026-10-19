@@ -3172,6 +3172,8 @@ async function pSendSms() {
   const btn = document.getElementById('psms-send-btn');
   btn.disabled = true; btn.textContent = 'Sending…';
   try {
+    // Create named Quo contact BEFORE sending, so Quo doesn't auto-create a nameless one
+    pEnsureQuoContact(lead.name || '', lead.phone || '', lead.address || '');
     await pSendSmsViaQuo(lead.phone, text);
     const at = new Date().toISOString();
     const entry = { at, outcome: 'SMS sent', text: text.slice(0, 200) };
