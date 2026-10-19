@@ -1178,12 +1178,20 @@ function renderReport(opts) {
   const followups = movedTo('followup');
   const underContract = movedTo('under_contract');
   const conv = calls ? Math.round((qualified / calls) * 100) : 0;
+  // Contact rate: answered / attempted
+  const answeredOutcomes = ['qualified', 'followup_scheduled', 'not_interested', 'talked'];
+  const answered = acts.filter(a => 
+    (a.action === 'dialer_dispo' && answeredOutcomes.includes(a.outcome)) ||
+    (a.action === 'call_logged' && answeredOutcomes.includes(a.outcome))
+  ).length;
+  const contactRate = calls ? Math.round((answered / calls) * 100) : 0;
   const cardsRow1 = [
     [calls, 'Calls Logged', '#5b8fd4'],
     [sms, 'Texts Sent', '#7fb3ff'],
     [qualified, 'Qualified Leads', '#4caf82'],
     [conv + '%', 'Call \u2192 Qualified', '#4caf82'],
     [followups, 'Follow Ups', '#c084fc'],
+    [contactRate + '%', 'Contact Rate', '#e8b84b'],
   ];
   const cardsRow2 = [
     [offers, 'Offers Submitted', '#d4a843'],
