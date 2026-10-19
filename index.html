@@ -1275,8 +1275,8 @@ function renderReportFeed() {
 /* ---------------- KPI modal (📊) — merged KPIs + Offers ---------------- */
 async function ensureKpiModalData() {
   try {
-    const snapshot = await db.collection('activityLog').orderBy('ts', 'desc').limit(5000).get();
-    allActivity = snapshot.docs.map(d => d.data());
+    const snapshot = await db.collection('activityLog').limit(5000).get();
+    allActivity = snapshot.docs.map(d => d.data()).sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
   } catch (e) { allActivity = []; }
   try {
     const lsnap = await db.collection('leads').get();
