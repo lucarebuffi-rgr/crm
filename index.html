@@ -502,6 +502,13 @@
   .user-chip:hover { border-color: #d4a843; }
   .lead-card { transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
   .lead-card:hover { border-color: rgba(212,168,67,.45); box-shadow: 0 4px 16px rgba(0,0,0,.45); }
+
+  /* Two-column lead cards on wide desktop (2026-10-19) — CSS-only, mobile stays single-column */
+  @media (min-width: 1200px) {
+    #lead-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+    #lead-list .lead-card { margin-bottom: 0; }
+    #lead-list .empty-state { grid-column: 1 / -1; }
+  }
   .agenda-btn { transition: border-color .15s ease, color .15s ease; }
   .agenda-btn:hover { border-color: #d4a843; color: #e8c476; }
   .pdispo-btn { transition: border-color .15s ease, background .15s ease; }
@@ -814,7 +821,7 @@
   <div style="max-width:900px; margin:0 auto;">
     <a class="sop-back" href=".">← Back to CRM</a>
     <h1 style="margin:0 0 4px;">📊 KPIs</h1>
-    <div style="font-size:13px; color:#8a97a8; margin-bottom:20px;">Calls logged, stage changes, and dial clicks, attributed by each lead's assigned director.</div>
+    <div style="font-size:13px; color:#8a97a8; margin-bottom:20px;">Calls logged, stage changes, and dial clicks, attributed by the director who performed each action.</div>
 
     <div style="display:flex; gap:10px; margin-bottom:20px;">
       <button class="agenda-btn" data-report-range="1">Today</button>
@@ -863,7 +870,7 @@
 <div id="sop-modal-overlay" class="modal-overlay" style="z-index:200;">
   <div class="modal-card" style="max-width:720px;">
     <div class="modal-header">
-      <h2>📋 SOP</h2>
+      <h2>❓ SOP</h2>
       <button class="modal-close-btn" onclick="closeSopModal()">✕</button>
     </div>
     <div class="modal-body" id="sop-modal-body"></div>
