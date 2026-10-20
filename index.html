@@ -11,7 +11,6 @@
 <title>GA Probates — Call List</title>
 
 <!-- Firebase (no build step — loaded straight from Google's CDN) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -34,7 +33,7 @@
   .spin { animation: spin 1s linear infinite; display: inline-block; }
 
   /* ---------- App ---------- */
-  #app-screen { display: block; min-height: 100vh; }
+  #app-screen { display: block; min-height: 100vh; min-height: 100dvh; }
   .header {
     border-bottom: 1px solid #1b3151; padding: 20px 24px; position: sticky; top: 0;
     background: rgba(13,27,46,0.93); backdrop-filter: blur(8px); z-index: 20;
@@ -477,6 +476,8 @@
     .content { padding: 14px 12px calc(60px + env(safe-area-inset-bottom)); }
     /* iOS zooms on inputs under 16px — keep it at 16 */
     input, select, textarea { font-size: 16px !important; }
+    .feed-row { flex-wrap: wrap; }
+    .feed-row .feed-time, .feed-row .feed-director { min-width: 0; }
     .btn-gold, .btn-ghost { min-height: 48px; }
     .search-wrap input { padding: 13px 12px 13px 38px; }
     /* Dialer: roomier touch targets, full-width dispos */
@@ -504,7 +505,7 @@
   .lead-card:hover { border-color: rgba(212,168,67,.45); box-shadow: 0 4px 16px rgba(0,0,0,.45); }
 
   /* Two-column lead cards on wide desktop (2026-10-19) — CSS-only, mobile stays single-column */
-  @media (min-width: 1200px) {
+  @media (min-width: 1024px) {
     #lead-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
     #lead-list .lead-card { margin-bottom: 0; }
     #lead-list .empty-state { grid-column: 1 / -1; }
@@ -817,7 +818,7 @@
   </div>
 </div>
 
-<div id="report-screen" style="display:none; min-height:100vh; padding:24px;">
+<div id="report-screen" style="display:none; min-height:100vh; min-height:100dvh; padding:24px;">
   <div style="max-width:900px; margin:0 auto;">
     <a class="sop-back" href=".">← Back to CRM</a>
     <h1 style="margin:0 0 4px;">📊 KPIs</h1>
@@ -837,7 +838,7 @@
   </div>
 </div>
 
-<div id="sop-screen" style="display:none; min-height:100vh;">
+<div id="sop-screen" style="display:none; min-height:100vh; min-height:100dvh;">
   <div class="sop-wrap" id="sop-body"></div>
 </div>
 
@@ -1212,9 +1213,24 @@ function renderReport(opts) {
   if (!opts.skipFeed) renderReportFeed();
 }
 
+/* Lazy-load heavy libraries only when a feature needs them */
+const _lazyLibs = {};
+function loadLibOnce(key, url, isReady) {
+  if (isReady()) return Promise.resolve();
+  if (_lazyLibs[key]) return _lazyLibs[key];
+  _lazyLibs[key] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { delete _lazyLibs[key]; reject(new Error('Failed to load ' + key)); };
+    document.head.appendChild(s);
+  });
+  return _lazyLibs[key];
+}
+
 let reportChart = null;
 let kpiModalChart = null;
-function renderReportChart(acts, idPrefix) {
+async function renderReportChart(acts, idPrefix) {
   idPrefix = idPrefix || '';
   const chartVar = idPrefix ? 'kpiModalChart' : 'reportChart';
   if (idPrefix) { if (kpiModalChart) { try { kpiModalChart.destroy(); } catch (e) {} kpiModalChart = null; } }
@@ -1227,6 +1243,7 @@ function renderReportChart(acts, idPrefix) {
     labels.push(d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }));
     data.push(acts.filter(a => (a.action === 'call_logged' || a.action === 'dialer_dispo' || a.action === 'dial_clicked') && (a.ts || '').slice(0, 10) === key).length);
   }
+  if (typeof Chart === 'undefined') { try { await loadLibOnce('chartjs', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js', () => typeof Chart !== 'undefined'); } catch (e) {} }
   if (typeof Chart === 'undefined') return;
   Chart.defaults.color = '#8a97a8';
   Chart.defaults.borderColor = 'rgba(30,53,84,.7)';
