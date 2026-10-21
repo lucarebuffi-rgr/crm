@@ -2861,7 +2861,7 @@ function pInitDialerDOM() {
     <div class="psms-panel psms-tpledit-panel">
       <h3>💬 SMS Templates</h3>
       <div id="psms-tpledit-who" style="font-size:12px;color:#8a97a8;margin:-6px 0 8px;"></div>
-      <div class="psms-tpledit-ph">Placeholders: <code>{firstName}</code> lead's first name · <code>{name}</code> first name or "there" · <code>{nameLine}</code> "FirstName?" (used in SMS #1) · <code>{address}</code> property address</div>
+      <div class="psms-tpledit-ph">Placeholders: <code>{firstName}</code> lead's first name · <code>{name}</code> first name or "there" · <code>{nameLine}</code> "FirstName?" (used in SMS #1) · <code>{address}</code> property address · <code>{director}</code> your first name — and any "Luca" in a template auto-swaps to the signed-in director's first name when anyone else sends</div>
       <div id="psms-tpledit-list"></div>
       <div class="psms-foot">
         <span id="psms-tpledit-saved">Saved ✓</span>
@@ -3102,7 +3102,24 @@ const DEFAULT_SMS_TEMPLATES = {
 let pSmsTemplates = {}; // overrides loaded from Firestore; empty = defaults
 function pSmsTplDocId() { return directorId ? 'smsTemplates_' + directorId : 'smsTemplates'; }
 function pSmsTplRaw(kind) { return (pSmsTemplates && pSmsTemplates[kind]) || DEFAULT_SMS_TEMPLATES[kind] || ''; }
+// The signed-in director's first name. Templates are written in Luca's voice;
+// pApplyDirectorName() swaps the sender name to whoever is actually sending.
+function pDirectorFirstName() {
+  const n = String(directorName || '').trim();
+  return n ? n.split(' ')[0] : 'Luca';
+}
+// Runs on the RAW template, before lead placeholders are filled, so a lead
+// who is himself named Luca is never renamed. Supports the {director} token;
+// the legacy literal "Luca" is swapped too, so every existing template
+// (defaults + Firestore-edited) speaks in the sender's name automatically.
+function pApplyDirectorName(tpl) {
+  const first = pDirectorFirstName();
+  let out = String(tpl).split('{director}').join(first);
+  if (first !== 'Luca') out = out.replace(/\bLuca\b/g, first);
+  return out;
+}
 function pFillSms(tpl, lead) {
+  tpl = pApplyDirectorName(tpl);
   const firstName = (lead.firstName || '').trim();
   const addr = (lead.address || '').trim() || 'the property';
   const name = firstName || 'there';
