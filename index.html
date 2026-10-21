@@ -367,12 +367,16 @@
   }
   .toast.error { border-color: #d9534f; background: #3a1e1e; }
   /* ---------- Probate Dialer ---------- */
-  .pdialer { position: fixed; inset: 0; z-index: 200; background: #0d1b2e; display: none; flex-direction: column; overflow-y: auto; padding: 16px; }
-  .pdialer.open { display: flex; }
-  .pdialer-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; max-width: 560px; width: 100%; margin: 0 auto 10px; }
+  .pdialer { position: fixed; inset: 0; z-index: 200; background: rgba(4,10,20,.8); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: none; }
+  .pdialer.open { display: block; }
+  .pdialer-panel { max-width: 680px; margin: 4vh auto; max-height: 92vh; max-height: 92dvh; overflow-y: auto; background: #0d1b2e; border: 1px solid #1e3554; border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); padding: 24px 16px 48px; box-sizing: border-box; }
+  @media (max-width:640px){
+    .pdialer-panel { margin: 0; max-width: none; width: 100%; height: 100vh; height: 100dvh; max-height: none; border: none; border-radius: 0; }
+  }
+  .pdialer-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .pdialer-progress { font-size: 13px; color: #8a97a8; font-weight: 600; }
   .pdialer-kpi { font-size: 13px; color: #d4a843; font-weight: 700; }
-  .pdialer-card-wrap { display: flex; align-items: stretch; gap: 8px; max-width: 560px; width: 100%; margin: 0 auto; }
+  .pdialer-card-wrap { display: flex; align-items: stretch; gap: 8px; }
   .pdialer-side-btn { background: #142640; border: 1px solid #22385a; color: #9fb3cc; border-radius: 12px; font-size: 28px; padding: 0 14px; cursor: pointer; }
   .pdialer-side-btn:active { transform: scale(.94); }
   .pdialer-card { flex: 1; background: #10233d; border: 1px solid #22385a; border-radius: 16px; padding: 20px; }
@@ -403,7 +407,7 @@
   .pdispo-btn:active { transform: scale(.96); }
   .pdialer-empty { text-align: center; color: #8a97a8; padding: 30px 10px; font-size: 14px; line-height: 1.6; }
   .pdialer-nophone { text-align: center; color: #8a97a8; padding: 14px; font-size: 14px; }
-  .pdialer-sop { max-width: 560px; width: 100%; margin: 12px auto 0; background: #10233d; border: 1px solid #22385a; border-radius: 12px; padding: 10px 14px; font-size: 13px; color: #9fb3cc; }
+  .pdialer-sop { margin-top: 12px; background: #10233d; border: 1px solid #22385a; border-radius: 12px; padding: 10px 14px; font-size: 13px; color: #9fb3cc; }
   .pdialer-sop summary { cursor: pointer; font-weight: 700; color: #d4a843; }
   .pdialer-sop-body { margin-top: 8px; line-height: 1.7; }
   /* SMS sheet */
@@ -481,7 +485,7 @@
     .btn-gold, .btn-ghost { min-height: 48px; }
     .search-wrap input { padding: 13px 12px 13px 38px; }
     /* Dialer: roomier touch targets, full-width dispos */
-    .pdialer { padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); }
+    .pdialer-panel { padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); }
     .pdialer-card { padding: 16px; }
     .pdialer-side-btn { padding: 0 18px; min-height: 72px; }
     .pdialer-dispos { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -602,7 +606,7 @@
     .dir-del { min-width: 44px; min-height: 44px; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; }
 
     /* --- Dialer: big touch targets everywhere --- */
-    .pdialer { padding: 10px 10px calc(14px + env(safe-area-inset-bottom)); }
+    .pdialer-panel { padding: 10px 10px calc(14px + env(safe-area-inset-bottom)); }
     .pdialer-top { margin-bottom: 8px; }
     .pdialer-progress, .pdialer-kpi { font-size: 14px; }
     .pdialer-card { padding: 18px 16px; border-radius: 18px; }
@@ -2885,6 +2889,7 @@ function pInitDialerDOM() {
   if (document.getElementById('pdialer')) return;
   document.body.insertAdjacentHTML('beforeend', `
   <div id="pdialer" class="pdialer">
+   <div class="pdialer-panel">
     <div class="pdialer-top">
       <button class="btn-ghost" onclick="pDialerExit()">✕ Exit</button>
       <div class="pdialer-progress" id="pdialer-progress"></div>
@@ -2905,6 +2910,7 @@ function pInitDialerDOM() {
         ☠️ Dead Lead removes the lead from the dialer immediately.
       </div>
     </details>
+   </div>
   </div>
   <div id="psms-sheet" class="psms-sheet">
     <div class="psms-backdrop" onclick="pCloseSmsSheet()"></div>
