@@ -2463,7 +2463,7 @@ function renderCard(lead) {
           </div>
           <div class="lead-address">📍 ${escapeHtml(lead.address)}${lead.address ? ', ' : ''}${escapeHtml(lead.city)} ${escapeHtml(lead.state)} ${escapeHtml(lead.zip)}</div>
         </div>
-        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="logDialClick('${lead.id}')">📞 ${formatPhone(lead.phone)}</a>
+        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="return pCallClick(event, '${lead.id}', '${digitsOnly(lead.phone)}', false)">📞 ${formatPhone(lead.phone)}</a>
         <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
           <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/>
@@ -2710,6 +2710,15 @@ const P_QUO_PROXY_URL = 'https://script.google.com/macros/s/AKfycbw4TyScLuANH0OH
    once during onboarding — directors never touch any of this; they just
    sign in and everything routes to their own Quo account automatically. */
 function pQuoDirectorId() { return directorId || 'luca-rebuffi'; }
+/* Per-director Quo (Luca, 2026-10-21): a director whose roster entry
+   (settings/directors) carries ownQuo:true has their OWN Quo account and
+   sends texts + places calls from it. Salena (sub-user on Luca's Quo) and
+   any director whose key isn't wired yet have no flag → Luca's setup. */
+function pSignedInOwnQuo() {
+  if (!directorId) return false;
+  const d = (directorsList || []).find(x => x && x.id === directorId);
+  return !!(d && d.ownQuo === true);
+}
 function pEnsureQuoContact(name, phone, company) {
   try {
     let digits = digitsOnly(phone || '');
@@ -2731,6 +2740,59 @@ function pEnsureQuoContact(name, phone, company) {
     }).catch(() => {});
   } catch (e) { /* silent */ }
 }
+async function pProxyPost(body, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs || 45000);
+  try {
+    const res = await fetch(P_QUO_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json().catch(() => ({}));
+  } catch (e) {
+    throw new Error(e && e.name === 'AbortError' ? 'Quo proxy timed out' : ((e && e.message) || 'Quo proxy unreachable'));
+  } finally { clearTimeout(timer); }
+}
+/* Call-button wrapper for the lead-card + dialer tel: anchors. The anchor's
+   href="tel:…" stays as the built-in fallback. For Luca / Salena / anyone
+   without ownQuo this returns true and the tel: dial proceeds EXACTLY as
+   before (after the same logDialClick / contact-save the anchor always did).
+   For ownQuo directors it prevents the tel: dial and places the call from
+   their own Quo via the proxy's makeCall action instead; if the proxy says
+   no (director not fully wired), it toasts the real error and falls back to
+   the plain tel: dial. */
+function pCallClick(ev, leadId, digits, ensureFirst) {
+  try { logDialClick(leadId); } catch (e) {}
+  let ensured = false;
+  const ensure = () => {
+    if (ensured) return; ensured = true;
+    const lead = (typeof leads !== 'undefined') ? leads.find(l => l.id === leadId) : null;
+    if (lead) {
+      try { pEnsureQuoContact(pLeadName(lead), digits, fullAddressStr(lead)); } catch (e) {}
+    }
+  };
+  if (ensureFirst) ensure();
+  if (!pSignedInOwnQuo()) return true; // tel: navigation proceeds untouched
+  if (ev && ev.preventDefault) ev.preventDefault();
+  ensure(); // contact should live in the director's own Quo before the call
+  (async () => {
+    try {
+      const data = await pProxyPost({ action: 'makeCall', directorId: pQuoDirectorId(), to: digits }, 45000);
+      if (data && data.ok) {
+        showToast('📞 Calling from your Quo — it will ring your phone to connect');
+        return;
+      }
+      throw new Error((data && data.error) || 'proxy error');
+    } catch (e) {
+      showToast('Quo call failed: ' + (e.message || e) + ' — dialing directly instead', 'error');
+      window.location.href = 'tel:' + digits;
+    }
+  })();
+  return false;
+}
 async function pSendSmsViaQuo(phone, message) {
   let digits = digitsOnly(phone || '');
   if (!digits) throw new Error('No phone number on this lead');
@@ -2738,7 +2800,12 @@ async function pSendSmsViaQuo(phone, message) {
   if (!message || !message.trim()) throw new Error('Message is empty');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 45000);
-  const smsBody = { action: 'sendSms', directorId: pQuoDirectorId(), fromNumberId: 'PNB4aDMxDA', to: digits, content: message.trim() };
+  const smsBody = { action: 'sendSms', directorId: pQuoDirectorId(), to: digits, content: message.trim() };
+  // Per-director Quo (Luca, 2026-10-21): ownQuo directors send from their
+  // OWN Quo — omit the forced fromNumberId so the proxy resolves their
+  // QUO_KEYS key + QUO_FROM_NUMBERS number. Everyone else (Luca, Salena,
+  // not-yet-wired directors) keeps the Probates number lock:
+  if (!pSignedInOwnQuo()) smsBody.fromNumberId = 'PNB4aDMxDA';
   let res;
   try {
     res = await fetch(P_QUO_PROXY_URL, {
@@ -2974,7 +3041,7 @@ function pRenderDialerCard() {
     </div>
     ${pCadenceTrackerHTML(lead)}
     ${phone ? `
-      <a class="pdial-call" href="tel:${digits}" onclick="logDialClick('${lead.id}');pEnsureQuoContact('${escapeHtml(name).replace(/'/g, "\\'")}', '${digits}', '${escapeHtml(addr).replace(/'/g, "\\'")}')">📞 ${escapeHtml(formatPhone(phone))}</a>
+      <a class="pdial-call" href="tel:${digits}" onclick="return pCallClick(event, '${lead.id}', '${digits}', true)">📞 ${escapeHtml(formatPhone(phone))}</a>
       <button class="pdial-text" onclick="pOpenSmsSheet('${lead.id}', ${(stepDef.type === 'sms' || stepDef.type === 'call_sms') && stepDef.smsKind ? `'${stepDef.smsKind}'` : 'null'})">💬 Text</button>
     ` : '<div class="pdialer-nophone">No phone on file</div>'}
     <textarea id="pdialer-notes" class="pdialer-notes" placeholder="Call notes… (required for Qualified / Follow Up Scheduled)"></textarea>
@@ -3325,6 +3392,7 @@ function sopHtml() {
         <li><strong>💬 Text</strong> on the dialer card opens the SMS sheet.</li>
         <li>Pick a template — <strong>SMS #1</strong>, <strong>SMS #2</strong>, <strong>SMS #3</strong>, <strong>SMS #4</strong> — or write a custom message.</li>
         <li>Texts send through Quo and are logged on the lead. If sending fails you'll see the real error — never a fake "sent".</li>
+        <li><strong>Whose number?</strong> If you have your <strong>own Quo account</strong> linked, your calls and texts go out from <strong>your</strong> Quo number. Everyone else calls and texts from the Probates number, <strong>(770) 525-4623</strong>.</li>
       </ul>
     </div>
 
