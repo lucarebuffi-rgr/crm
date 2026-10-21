@@ -650,6 +650,60 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
+  /* ================= MOBILE (<=640px) header: compact 3-row layout =================
+     Luca 2026-10-21: the mobile header was loose/messy (tall logo band, user chip
+     floating alone, Directors icon orphaned on its own row, ~80px Dialer).
+     Now one tight unit:
+       Row 1: logo + title (left) · user chip (right, same line)
+       Row 2: Upload button (flexes) + all four icon buttons, one nowrap line
+       Row 3: full-width Dialer, slimmer (48px)
+     Pure CSS: .header-actions and its inner row are flattened with
+     display:contents so every control becomes a direct flex item of
+     .header-inner and is ordered into the rows above. No markup or JS change;
+     every rule lives in this max-width block, so desktop is untouched. */
+  @media (max-width: 640px) {
+    .header { padding: 10px 12px 6px; }
+    .header-inner { flex-wrap: wrap; gap: 10px 8px; }
+
+    /* Flatten the actions column + its inner row into .header-inner */
+    .header-actions { display: contents; }
+    .header-actions > div:first-child { display: contents; }
+
+    /* Row 1 — brand: small logo + one-line title */
+    .header-inner > div:first-child { order: 1; flex: 0 1 auto; min-width: 0; gap: 9px !important; }
+    .header-inner > div:first-child img { height: 32px !important; width: auto !important; }
+    .header-inner h1 { font-size: 16px; white-space: nowrap; }
+
+    /* Row 1 — user chip / sign-in button, same line, pushed right */
+    #pauth-chip, #pauth-btn { order: 2; flex: 0 0 auto; margin-left: auto; }
+    .user-chip { height: 34px; min-height: 34px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+    #pauth-btn { min-height: 34px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+
+    /* Row 2 — Upload (shrinks, ellipsis as last resort) + four even icons, nowrap */
+    #upload-btn {
+      order: 3; flex: 1 1 auto; min-width: 0; width: auto;
+      height: 40px; min-height: 40px; padding: 0 10px; font-size: 13px;
+      justify-content: center; white-space: nowrap;
+    }
+    #upload-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #add-lead-btn { order: 3; flex: 0 0 auto; min-height: 40px; white-space: nowrap; }
+    .header .icon-btn { order: 3; flex: 0 0 auto; width: 40px; height: 40px; font-size: 18px; }
+
+    /* Row 3 — Dialer: full width, slimmer */
+    .header-actions > .btn-gold {
+      order: 4; width: 100%; min-height: 48px;
+      padding-top: 10px !important; padding-bottom: 10px !important;
+      font-size: 17px;
+    }
+
+    /* Sync note: own line under the Dialer, only when it actually has text */
+    .sync-note { order: 5; width: 100%; margin-top: 0; }
+    .sync-note:empty { display: none; }
+
+    /* Pull the stats strip up against the header */
+    .content { padding-top: 6px; }
+  }
+
 </style>
 </head>
 <body>
