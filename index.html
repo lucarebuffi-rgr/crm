@@ -9,6 +9,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GA Probates">
 <title>GA Probates — Call List</title>
+<script>
+// Origin lock: this app no longer runs on github.io — show a dead 404 there.
+if (location.hostname === 'lucarebuffi-rgr.github.io') {
+  document.write('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>404 Not Found</title><style>body{margin:0;background:#ffffff;color:#24292e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;text-align:center}.box{max-width:640px;margin:0 auto;padding:80px 24px}h1{font-size:120px;line-height:1;margin:0 0 8px;color:#d1d5da;font-weight:300}.big{font-size:24px;margin:0 0 12px}.small{font-size:14px;color:#586069;margin:0}</style></head><body><div class="box"><h1>404</h1><p class="big">File not found</p><p class="small">The site configured at this address does not contain the requested file.</p></div></body></html>');
+  document.close();
+  window.stop();
+  throw new Error('404 Not Found');
+}
+</script>
 
 <!-- Firebase (no build step — loaded straight from Google's CDN) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
