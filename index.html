@@ -2851,7 +2851,6 @@ function pCallClick(ev, leadId, digits, ensureFirst) {
   // director's Quo dialer and the call goes out on their Quo number.
   // Sync the contact into their Quo first, then let tel: proceed.
   ensure();
-  try { showToast('📞 Opening in your calling app — with Quo set as your default calling app, this dials from your Quo number'); } catch (e) {}
   return true;
 }
 async function pSendSmsViaQuo(phone, message) {
