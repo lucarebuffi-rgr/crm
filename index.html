@@ -2843,22 +2843,16 @@ function pCallClick(ev, leadId, digits, ensureFirst) {
   };
   if (ensureFirst) ensure();
   if (!pSignedInOwnQuo()) return true; // tel: navigation proceeds untouched
-  if (ev && ev.preventDefault) ev.preventDefault();
-  ensure(); // contact should live in the director's own Quo before the call
-  (async () => {
-    try {
-      const data = await pProxyPost({ action: 'makeCall', directorId: pQuoDirectorId(), to: digits }, 45000);
-      if (data && data.ok) {
-        showToast('📞 Calling from your Quo — it will ring your phone to connect');
-        return;
-      }
-      throw new Error((data && data.error) || 'proxy error');
-    } catch (e) {
-      showToast('Quo call failed: ' + (e.message || e) + ' — dialing directly instead', 'error');
-      window.location.href = 'tel:' + digits;
-    }
-  })();
-  return false;
+  // Own-Quo directors (Luca, 2026-10-23): Quo's API cannot place outbound
+  // calls — POST /v1/calls 404s on both api.openphone.com and api.quo.com
+  // (the Calls API is read-only), so the proxy makeCall route is dead.
+  // Quo's own click-to-call mechanism is the device's DEFAULT CALLING APP:
+  // with Quo set as default, this tel: handoff loads the number in the
+  // director's Quo dialer and the call goes out on their Quo number.
+  // Sync the contact into their Quo first, then let tel: proceed.
+  ensure();
+  try { showToast('📞 Opening in your calling app — with Quo set as your default calling app, this dials from your Quo number'); } catch (e) {}
+  return true;
 }
 async function pSendSmsViaQuo(phone, message) {
   let digits = digitsOnly(phone || '');
