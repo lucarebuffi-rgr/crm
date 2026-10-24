@@ -2799,7 +2799,9 @@ function pEnsureQuoContact(name, phone, company) {
     const body = {
       action: 'createContact',
       directorId: pQuoDirectorId(),
-      firstName: parts[0] || 'Seller',
+      // Never invent a name: unknown stays blank and the proxy's refresh
+      // renames it once the CRM learns it (no 'Seller' placeholder).
+      firstName: parts[0] || '',
       lastName: parts.slice(1).join(' '),
       phone: digits,
     };
