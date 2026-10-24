@@ -1020,13 +1020,17 @@ async function pSignIn() {
 function pSignOut() { if (googleProvider) firebase.auth().signOut().catch(() => {}); }
 if (googleProvider) firebase.auth().onAuthStateChanged(async (u) => {
   currentUser = u || null;
+  // Load the roster BEFORE deriving identity (same order as the S&Z CRM):
+  // a director's real name comes from the roster, and deriving first falls
+  // back to the email prefix — that's how Ali's texts said "alilayton100"
+  // instead of "Ali". (2026-10-24 fix.)
+  if (u && u.email) { try { await pLoadDirectors(); } catch (e) {} }
   if (u && u.email) {
     const ident = directorIdentityForEmail(u.email);
     directorId = ident.id; directorName = ident.name;
   } else { directorId = null; directorName = null; }
   pUpdateAuthUI();
   // Reload per-director data (falls back to shared/global when unsigned)
-  await pLoadDirectors();
   await pLoadSmsTemplates();
 });
 else { pUpdateAuthUI(); }
