@@ -3361,15 +3361,14 @@ async function pSendSms() {
     const at = new Date().toISOString();
     const entry = { at, outcome: 'SMS sent', text: text.slice(0, 200) };
     if (directorId) { entry.byId = directorId; entry.byName = directorName; }
-    const curStep = lead.cadenceStep || 0;
-    let newStep = curStep + 1;
-    if (newStep >= P_CADENCE_STEPS.length) newStep = 0;
-    lead.lastCalledAt = at; lead.cadenceStep = newStep;
+    // SMS sends never advance the cadence (Luca, 2026-10-28 — same rule as S&Z):
+    // only call disposition buttons move a lead to the next touch. The SMS is
+    // logged (notes + lastCalledAt) and nothing else changes.
+    lead.lastCalledAt = at;
     lead.notes = (lead.notes || []).concat([entry]);
     await leadsRef.doc(lead.id).update({
       lastCalledAt: at,
       notes: firebase.firestore.FieldValue.arrayUnion(entry),
-      cadenceStep: newStep,
     });
     logActivity(lead.id, 'sms_sent', { text: text.slice(0, 120) });
     showToast('SMS sent ✓');
