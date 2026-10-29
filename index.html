@@ -911,6 +911,19 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
 
 <div id="toast-container"></div>
 
+<div id="lead-modal-overlay" class="modal-overlay">
+  <div class="modal-card" style="max-width:900px;">
+    <div class="modal-header">
+      <h2 id="lead-modal-title"></h2>
+      <button class="modal-close-btn" onclick="closeLeadModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="lead-modal-address" style="font-size:12px;color:#8a97a8;margin-bottom:12px;"></div>
+      <div id="lead-modal-body"></div>
+    </div>
+  </div>
+</div>
+
 <div id="kpi-modal-overlay" class="modal-overlay" style="z-index:200;">
   <div class="modal-card" style="max-width:900px;">
     <div class="modal-header">
@@ -1394,6 +1407,43 @@ function closeKpiModal() {
 document.getElementById('kpi-modal-overlay').addEventListener('click', e => {
   if (e.target.id === 'kpi-modal-overlay') closeKpiModal();
 });
+
+/* ---------------- Lead-detail bubble (CRM view) ---------------- */
+// Clicking a lead opens its detail in a modal bubble (same pattern as the
+// KPI bubble) instead of expanding it inline below the card. The list
+// underneath stays rendered, so closing the bubble returns to the list.
+// Called from renderList/renderAgenda before attachCardListeners, so every
+// control inside the bubble gets wired exactly as the inline detail was.
+function syncLeadModal() {
+  const overlay = document.getElementById('lead-modal-overlay');
+  if (!overlay) return;
+  const body = document.getElementById('lead-modal-body');
+  const lead = expandedId ? leads.find(l => l.id === expandedId) : null;
+  if (!lead) {
+    overlay.classList.remove('open');
+    if (body) body.innerHTML = '';
+    return;
+  }
+  const title = document.getElementById('lead-modal-title');
+  if (title) title.textContent = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Lead';
+  const addr = document.getElementById('lead-modal-address');
+  if (addr) addr.textContent = '📍 ' + fullAddressText(lead);
+  if (body) body.innerHTML = renderLeadDetail(lead);
+  overlay.classList.add('open');
+}
+function closeLeadModal() {
+  expandedId = null;
+  const overlay = document.getElementById('lead-modal-overlay');
+  if (overlay) overlay.classList.remove('open');
+  const body = document.getElementById('lead-modal-body');
+  if (body) body.innerHTML = '';
+}
+(function () {
+  const lmo = document.getElementById('lead-modal-overlay');
+  if (lmo) lmo.addEventListener('click', e => {
+    if (e.target.id === 'lead-modal-overlay') closeLeadModal();
+  });
+})();
 document.querySelectorAll('[data-kpi-range]').forEach(btn => {
   btn.addEventListener('click', () => {
     reportRangeDays = parseInt(btn.getAttribute('data-kpi-range'), 10);
@@ -2279,6 +2329,7 @@ function renderAgenda() {
   });
 
   container.innerHTML = agendaLeads.map(lead => renderCard(lead)).join('');
+  syncLeadModal();
   attachCardListeners();
 }
 
@@ -2372,7 +2423,142 @@ function renderList() {
   }
 
   container.innerHTML = filtered.map(lead => renderCard(lead)).join('');
+  syncLeadModal();
   attachCardListeners();
+}
+
+function renderLeadDetail(lead) {
+  const notes = lead.notes || [];
+  const draft = drafts[lead.id] || { outcome: 'no_answer', text: '' };
+  const taskDraft = taskDrafts[lead.id] || {};
+  return `
+    <div class="lead-detail">
+      <div class="status-track">
+        ${STATUSES.map(s => `<div class="status-step" data-status-step="${lead.id}" data-status-value="${s.id}"
+            style="${s.id === lead.status
+              ? `background:${s.color};border-color:${s.color};color:#0d1b2e;`
+              : `color:${s.color};`}">${s.label}</div>`).join('')}
+      </div>
+
+      ${SUBSTAGES[lead.status] ? `
+      <div class="substage-track">
+        ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
+      </div>` : ''}
+
+      <div class="section-label">Property</div>
+      <div class="fin-field address-field" style="margin-bottom:12px;">
+        <label>Property Address</label>
+        <input type="text" placeholder="Street, City, ST Zip" value="${escapeHtml(fullAddressText(lead))}" data-full-address-input="${lead.id}" />
+      </div>
+
+      <div class="fin-field" style="margin-bottom:18px;">
+        <label>Acquisition Director</label>
+        <select data-director-select="${lead.id}">
+          <option value="" ${!lead.acquisitionDirector ? 'selected' : ''}>Unassigned</option>
+          ${directorNames().map(d => `<option value="${escapeHtml(d)}" ${lead.acquisitionDirector===d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="section-label">Deal Numbers</div>
+      <div class="fin-grid">
+        <div class="fin-field">
+          <label>Lead Value</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.leadValue || '')}" data-field-input="${lead.id}" data-field-name="leadValue" /></div>
+        </div>
+        <div class="fin-field">
+          <label>Asking Price</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.askingPrice || '')}" data-field-input="${lead.id}" data-field-name="askingPrice" /></div>
+        </div>
+        <div class="fin-field">
+          <label>LAO</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.lao || '')}" data-field-input="${lead.id}" data-field-name="lao" /></div>
+        </div>
+        <div class="fin-field">
+          <label>MAO</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.mao || '')}" data-field-input="${lead.id}" data-field-name="mao" /></div>
+        </div>
+      </div>
+
+      <div class="outcome-row">
+        <select data-outcome-select="${lead.id}">
+          ${OUTCOMES.map(o => `<option value="${o.id}" ${o.id===draft.outcome?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <textarea class="note-input" rows="2" placeholder="What happened on the call? (optional)" data-note-input="${lead.id}">${escapeHtml(draft.text)}</textarea>
+      <div class="detail-actions">
+        <button class="log-call-btn" data-log-call="${lead.id}">+ Log Call</button>
+        ${OFFER_STAGES.includes(lead.status) ? `<button class="offer-btn" data-submit-offer="${lead.id}">💰 Submit Offer</button>` : ''}
+        <button class="delete-lead-btn" data-delete-lead="${lead.id}">Delete Lead</button>
+      </div>
+      ${notes.length ? `<div class="notes-list">${notes.slice().reverse().map(n => {
+        const noteKey = lead.id + '::' + n.at;
+        const isNoteOpen = !!expandedNotes[noteKey];
+        return `
+        <div class="note-entry">
+          <div class="note-meta" data-note-toggle="${escapeHtml(noteKey)}" style="cursor:pointer;">
+            🕒 ${new Date(n.at).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}
+            <span class="note-outcome">${escapeHtml(n.outcome)}</span>
+            ${n.text ? `<span style="margin-left:auto; color:#8a97a8;">${isNoteOpen ? '▴' : '▾'}</span>` : ''}
+          </div>
+          ${(n.text && isNoteOpen) ? `<div class="note-text">${escapeHtml(n.text)}</div>` : ''}
+        </div>`;
+      }).join('')}</div>` : ''}
+
+      ${(lead.offers && lead.offers.length) ? `
+      <div style="border-top:1px solid #22385a; padding-top:12px; margin-top:4px;">
+        <div style="font-size:12px; color:#8a97a8; font-weight:700;">OFFERS SUBMITTED (${lead.offers.length})</div>
+        <div class="offers-list">${lead.offers.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).map(o => `
+          <div class="offer-row">
+            <span class="offer-amount">$${Number(o.amount||0).toLocaleString()}</span>
+            <span class="offer-date">${formatTaskDate(o.date)}${o.by ? ' · ' + escapeHtml(o.by) : ''}</span>
+            ${o.note ? `<span class="offer-note">${escapeHtml(o.note)}</span>` : ''}
+            <button class="offer-del" data-offer-del="${lead.id}" data-offer-id="${o.id}" title="Delete offer">✕</button>
+          </div>`).join('')}</div>
+      </div>` : ''}
+
+      <div class="task-form">
+        <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">TASKS</div>
+        ${(lead.tasks && lead.tasks.length) ? `<div class="task-list">${lead.tasks.slice().sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(t => `
+          <div class="task-item ${t.done ? 'is-done' : ''}">
+            <input type="checkbox" class="task-checkbox" ${t.done ? 'checked' : ''} data-task-done="${lead.id}" data-task-id="${t.id}" />
+            <div class="task-item-body">
+              <div class="task-name">${escapeHtml(t.name)}</div>
+              <div class="task-when">${formatTaskDate(t.date)}${t.time ? ` · ${formatTaskTime(t.time)}` : ''}</div>
+              ${t.notes ? `<div class="task-notes-text">${escapeHtml(t.notes)}</div>` : ''}
+            </div>
+            <button class="task-edit-btn" data-task-edit="${lead.id}" data-task-id-edit="${t.id}" title="Edit task">✎</button>
+            <button class="task-delete-btn" data-task-delete="${lead.id}" data-task-id-del="${t.id}">✕</button>
+          </div>`).join('')}</div>` : ''}
+        ${(taskFormOpen[lead.id] || editingTask[lead.id]) ? `
+        <div class="task-form-row" style="margin-top:10px;">
+          <input type="text" placeholder="Task name" value="${escapeHtml(taskDraft.name || '')}" data-task-name-input="${lead.id}" />
+          <input type="date" value="${taskDraft.date || ''}" data-task-date-input="${lead.id}" />
+          <input type="time" value="${taskDraft.time || ''}" data-task-time-input="${lead.id}" />
+        </div>
+        <textarea placeholder="Task notes (optional)" data-task-notes-input="${lead.id}">${escapeHtml(taskDraft.notes || '')}</textarea>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="log-call-btn" data-add-task="${lead.id}">${editingTask[lead.id] ? '✓ Update Task' : '+ Add Task'}</button>
+          <button class="task-cancel-edit-btn" data-task-cancel-edit="${lead.id}">Cancel</button>
+        </div>
+        ` : `
+        <button class="log-call-btn" style="margin-top:10px;" data-open-task-form="${lead.id}">+ Add Task</button>
+        `}
+      </div>
+
+      ${PHOTO_STAGES.includes(lead.status) ? `
+      <div class="photo-section">
+        <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">PHOTOS</div>
+        ${(!lead.driveFolderUrl || editingDriveLink[lead.id]) ? `
+        <div class="drive-link-row">
+          <input type="text" placeholder="Paste the Google Drive folder link for this property" value="${escapeHtml(lead.driveFolderUrl || '')}" data-field-input="${lead.id}" data-field-name="driveFolderUrl" data-drive-link-input="${lead.id}" />
+        </div>` : `
+        <div class="drive-link-row">
+          <a class="drive-open-btn" href="${escapeHtml(lead.driveFolderUrl)}" target="_blank" rel="noopener" id="drive-link-name-${lead.id}">📁 Loading folder name…</a>
+          <button class="drive-edit-btn" data-drive-edit="${lead.id}" title="Change link">✎</button>
+        </div>`}
+        ${lead.driveFolderUrl ? `<div class="drive-carousel" id="drive-carousel-${lead.id}" data-drive-carousel="${lead.id}" data-drive-url="${escapeHtml(lead.driveFolderUrl)}"></div>` : ''}
+      </div>` : ''}
+    </div>`;
 }
 
 function renderCard(lead) {
@@ -2380,143 +2566,12 @@ function renderCard(lead) {
   const isOpen = expandedId === lead.id;
   const isFire = !!lead.fireLead;
   const isSelected = selectedIds.has(lead.id);
-  const notes = lead.notes || [];
   const hasOpenTask = (lead.tasks || []).some(t => !t.done);
   const isDormant = DORMANT_INDICATOR_STAGES.includes(lead.status) && !hasOpenTask;
 
-  let detail = '';
-  if (isOpen) {
-    const draft = drafts[lead.id] || { outcome: 'no_answer', text: '' };
-    const taskDraft = taskDrafts[lead.id] || {};
-    detail = `
-      <div class="lead-detail">
-        <div class="status-track">
-          ${STATUSES.map(s => `<div class="status-step" data-status-step="${lead.id}" data-status-value="${s.id}"
-              style="${s.id === lead.status
-                ? `background:${s.color};border-color:${s.color};color:#0d1b2e;`
-                : `color:${s.color};`}">${s.label}</div>`).join('')}
-        </div>
-
-        ${SUBSTAGES[lead.status] ? `
-        <div class="substage-track">
-          ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
-        </div>` : ''}
-
-        <div class="section-label">Property</div>
-        <div class="fin-field address-field" style="margin-bottom:12px;">
-          <label>Property Address</label>
-          <input type="text" placeholder="Street, City, ST Zip" value="${escapeHtml(fullAddressText(lead))}" data-full-address-input="${lead.id}" />
-        </div>
-
-        <div class="fin-field" style="margin-bottom:18px;">
-          <label>Acquisition Director</label>
-          <select data-director-select="${lead.id}">
-            <option value="" ${!lead.acquisitionDirector ? 'selected' : ''}>Unassigned</option>
-            ${directorNames().map(d => `<option value="${escapeHtml(d)}" ${lead.acquisitionDirector===d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
-          </select>
-        </div>
-
-        <div class="section-label">Deal Numbers</div>
-        <div class="fin-grid">
-          <div class="fin-field">
-            <label>Lead Value</label>
-            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.leadValue || '')}" data-field-input="${lead.id}" data-field-name="leadValue" /></div>
-          </div>
-          <div class="fin-field">
-            <label>Asking Price</label>
-            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.askingPrice || '')}" data-field-input="${lead.id}" data-field-name="askingPrice" /></div>
-          </div>
-          <div class="fin-field">
-            <label>LAO</label>
-            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.lao || '')}" data-field-input="${lead.id}" data-field-name="lao" /></div>
-          </div>
-          <div class="fin-field">
-            <label>MAO</label>
-            <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.mao || '')}" data-field-input="${lead.id}" data-field-name="mao" /></div>
-          </div>
-        </div>
-
-        <div class="outcome-row">
-          <select data-outcome-select="${lead.id}">
-            ${OUTCOMES.map(o => `<option value="${o.id}" ${o.id===draft.outcome?'selected':''}>${o.label}</option>`).join('')}
-          </select>
-        </div>
-        <textarea class="note-input" rows="2" placeholder="What happened on the call? (optional)" data-note-input="${lead.id}">${escapeHtml(draft.text)}</textarea>
-        <div class="detail-actions">
-          <button class="log-call-btn" data-log-call="${lead.id}">+ Log Call</button>
-          ${OFFER_STAGES.includes(lead.status) ? `<button class="offer-btn" data-submit-offer="${lead.id}">💰 Submit Offer</button>` : ''}
-          <button class="delete-lead-btn" data-delete-lead="${lead.id}">Delete Lead</button>
-        </div>
-        ${notes.length ? `<div class="notes-list">${notes.slice().reverse().map(n => {
-          const noteKey = lead.id + '::' + n.at;
-          const isNoteOpen = !!expandedNotes[noteKey];
-          return `
-          <div class="note-entry">
-            <div class="note-meta" data-note-toggle="${escapeHtml(noteKey)}" style="cursor:pointer;">
-              🕒 ${new Date(n.at).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}
-              <span class="note-outcome">${escapeHtml(n.outcome)}</span>
-              ${n.text ? `<span style="margin-left:auto; color:#8a97a8;">${isNoteOpen ? '▴' : '▾'}</span>` : ''}
-            </div>
-            ${(n.text && isNoteOpen) ? `<div class="note-text">${escapeHtml(n.text)}</div>` : ''}
-          </div>`;
-        }).join('')}</div>` : ''}
-
-        ${(lead.offers && lead.offers.length) ? `
-        <div style="border-top:1px solid #22385a; padding-top:12px; margin-top:4px;">
-          <div style="font-size:12px; color:#8a97a8; font-weight:700;">OFFERS SUBMITTED (${lead.offers.length})</div>
-          <div class="offers-list">${lead.offers.slice().sort((a,b) => (b.date||'').localeCompare(a.date||'')).map(o => `
-            <div class="offer-row">
-              <span class="offer-amount">$${Number(o.amount||0).toLocaleString()}</span>
-              <span class="offer-date">${formatTaskDate(o.date)}${o.by ? ' · ' + escapeHtml(o.by) : ''}</span>
-              ${o.note ? `<span class="offer-note">${escapeHtml(o.note)}</span>` : ''}
-              <button class="offer-del" data-offer-del="${lead.id}" data-offer-id="${o.id}" title="Delete offer">✕</button>
-            </div>`).join('')}</div>
-        </div>` : ''}
-
-        <div class="task-form">
-          <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">TASKS</div>
-          ${(lead.tasks && lead.tasks.length) ? `<div class="task-list">${lead.tasks.slice().sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(t => `
-            <div class="task-item ${t.done ? 'is-done' : ''}">
-              <input type="checkbox" class="task-checkbox" ${t.done ? 'checked' : ''} data-task-done="${lead.id}" data-task-id="${t.id}" />
-              <div class="task-item-body">
-                <div class="task-name">${escapeHtml(t.name)}</div>
-                <div class="task-when">${formatTaskDate(t.date)}${t.time ? ` · ${formatTaskTime(t.time)}` : ''}</div>
-                ${t.notes ? `<div class="task-notes-text">${escapeHtml(t.notes)}</div>` : ''}
-              </div>
-              <button class="task-edit-btn" data-task-edit="${lead.id}" data-task-id-edit="${t.id}" title="Edit task">✎</button>
-              <button class="task-delete-btn" data-task-delete="${lead.id}" data-task-id-del="${t.id}">✕</button>
-            </div>`).join('')}</div>` : ''}
-          ${(taskFormOpen[lead.id] || editingTask[lead.id]) ? `
-          <div class="task-form-row" style="margin-top:10px;">
-            <input type="text" placeholder="Task name" value="${escapeHtml(taskDraft.name || '')}" data-task-name-input="${lead.id}" />
-            <input type="date" value="${taskDraft.date || ''}" data-task-date-input="${lead.id}" />
-            <input type="time" value="${taskDraft.time || ''}" data-task-time-input="${lead.id}" />
-          </div>
-          <textarea placeholder="Task notes (optional)" data-task-notes-input="${lead.id}">${escapeHtml(taskDraft.notes || '')}</textarea>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <button class="log-call-btn" data-add-task="${lead.id}">${editingTask[lead.id] ? '✓ Update Task' : '+ Add Task'}</button>
-            <button class="task-cancel-edit-btn" data-task-cancel-edit="${lead.id}">Cancel</button>
-          </div>
-          ` : `
-          <button class="log-call-btn" style="margin-top:10px;" data-open-task-form="${lead.id}">+ Add Task</button>
-          `}
-        </div>
-
-        ${PHOTO_STAGES.includes(lead.status) ? `
-        <div class="photo-section">
-          <div style="font-size:12px; color:#8a97a8; margin-bottom:8px; font-weight:700;">PHOTOS</div>
-          ${(!lead.driveFolderUrl || editingDriveLink[lead.id]) ? `
-          <div class="drive-link-row">
-            <input type="text" placeholder="Paste the Google Drive folder link for this property" value="${escapeHtml(lead.driveFolderUrl || '')}" data-field-input="${lead.id}" data-field-name="driveFolderUrl" data-drive-link-input="${lead.id}" />
-          </div>` : `
-          <div class="drive-link-row">
-            <a class="drive-open-btn" href="${escapeHtml(lead.driveFolderUrl)}" target="_blank" rel="noopener" id="drive-link-name-${lead.id}">📁 Loading folder name…</a>
-            <button class="drive-edit-btn" data-drive-edit="${lead.id}" title="Change link">✎</button>
-          </div>`}
-          ${lead.driveFolderUrl ? `<div class="drive-carousel" id="drive-carousel-${lead.id}" data-drive-carousel="${lead.id}" data-drive-url="${escapeHtml(lead.driveFolderUrl)}"></div>` : ''}
-        </div>` : ''}
-      </div>`;
-  }
+  // The detail no longer renders inline below the card — it opens in the
+  // lead bubble (see syncLeadModal, called from renderList/renderAgenda).
+  const detail = '';
 
   return `
     <div class="lead-card ${isFire ? 'is-fire' : ''}">
