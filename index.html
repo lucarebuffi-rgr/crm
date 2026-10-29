@@ -2474,6 +2474,22 @@ function renderLeadDetail(lead) {
         ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
       </div>` : ''}
 
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="return pCallClick(event, '${lead.id}', '${digitsOnly(lead.phone)}', false)">📞 ${formatPhone(lead.phone)}</a>
+        <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
+          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/>
+            <path d="M8.3 14.6h6.9l-6.4 3.5h6.4" stroke="#0f6fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="quick-link-btn streetview-btn" href="https://www.google.com/maps/place/${encodeURIComponent(fullAddressStr(lead))}" target="_blank" rel="noopener" title="Google Street View">
+          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.6 6.6 11.7 7.1 12.16a.6.6 0 0 0 .8 0c.5-.46 7.1-6.56 7.1-12.16C19.5 5.36 16.14 2 12 2z" fill="#ffffff"/>
+            <circle cx="12" cy="9.5" r="3" fill="#e0483a"/>
+          </svg>
+        </a>
+      </div>
+
       <div class="section-label">Property</div>
       <div class="fin-field address-field" style="margin-bottom:12px;">
         <label>Property Address</label>
