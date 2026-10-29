@@ -1117,7 +1117,6 @@ const OUTCOMES = [
   { id: 'callback_scheduled', label: 'Scheduled Callback',   status: 'callback' },
   { id: 'not_interested',     label: 'Not Interested',       status: 'not_interested' },
   { id: 'wrong_number',       label: 'Wrong / Bad Number',   status: 'dead' },
-  { id: 'deal',               label: 'Deal Closed',          status: 'deal' },
 ];
 
 /* ---------------- Helpers ---------------- */
@@ -2113,16 +2112,25 @@ async function fetchDriveFolderName(leadId, folderUrl) {
   }
 }
 
+// Outcomes that never move a lead already past New / Trying to Reach: the call
+// is logged and the lead stays in its stage. Manual stage changes (stage
+// dropdown) still work as before, and New / Trying leads keep the existing
+// move prompt. Not Interested / Wrong Number still prompt as before.
+const NEUTRAL_OUTCOMES = ['no_answer', 'voicemail', 'busy', 'talked', 'callback_scheduled'];
 function logCall(id) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
   const outcome = OUTCOMES.find(o => o.id === draft.outcome);
   const lead = leads.find(l => l.id === id);
-  const newStatus = outcome ? outcome.status : STATUS_MAP.new.id;
-  if (lead && lead.status !== newStatus) {
-    confirmStageChange(id, newStatus, () => doLogCall(id), `Logging this call ("${outcome ? outcome.label : 'Note'}") will move it. Cancel keeps your note so nothing is lost.`);
+  if (lead && lead.status && !['new', 'trying'].includes(lead.status) && NEUTRAL_OUTCOMES.includes(draft.outcome)) {
+    doLogCall(id, true);
     return;
   }
-  doLogCall(id);
+  const newStatus = outcome ? outcome.status : null;
+  if (lead && newStatus && lead.status !== newStatus) {
+    confirmStageChange(id, newStatus, () => doLogCall(id, false), `Logging this call ("${outcome.label}") will move it. Cancel keeps your note so nothing is lost.`);
+    return;
+  }
+  doLogCall(id, !newStatus);
 }
 
 /* Auto-log a call when the user taps a tel: link to dial. Fire-and-forget —
@@ -2151,7 +2159,7 @@ function logDialClick(leadId) {
   // refresh the lead list UI to show the new count
   try { if (typeof render === 'function') render(); } catch (e) {}
 }
-function doLogCall(id) {
+function doLogCall(id, keepStatus) {
   const draft = drafts[id] || { outcome: 'no_answer', text: '' };
   const outcome = OUTCOMES.find(o => o.id === draft.outcome);
   const entry = {
@@ -2160,10 +2168,11 @@ function doLogCall(id) {
     text: (draft.text || '').trim(),
   };
   if (directorId) { entry.byId = directorId; entry.byName = directorName; }
-  const newStatus = outcome ? outcome.status : STATUS_MAP.new.id;
+  const newStatus = outcome ? outcome.status : null;
   // Auto-assign: whoever qualifies the lead becomes its Acquisition Director.
+  // Only on a real transition to Qualified — never when keeping the stage.
   let assignEntry = null, assignName = null;
-  if (newStatus === 'callback') {
+  if (!keepStatus && newStatus === 'callback') {
     assignName = currentDirectorDisplayName();
     const lead = leads.find(l => l.id === id);
     if (lead) lead.acquisitionDirector = assignName;
@@ -2173,11 +2182,11 @@ function doLogCall(id) {
   const upd = {
     callAttempts: firebase.firestore.FieldValue.increment(1),
     lastCalledAt: entry.at,
-    status: newStatus,
     notes: assignEntry
       ? firebase.firestore.FieldValue.arrayUnion(entry, assignEntry)
       : firebase.firestore.FieldValue.arrayUnion(entry),
   };
+  if (!keepStatus && newStatus) upd.status = newStatus;
   if (assignName) upd.acquisitionDirector = assignName;
   leadsRef.doc(id).update(upd).then(() => {
     drafts[id] = { outcome: draft.outcome, text: '' };
