@@ -650,6 +650,26 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
+  /* ===== MOBILE POPUP AUDIT FIXES (2026-10-28) — mobile only, no desktop change =====
+     Found: lead-bubble inputs at 13-15px (iOS auto-zooms on focus), SMS sheet +
+     template textareas below 16px, add-lead city/state/zip row squeezing,
+     template sheet missing dvh, directors rows squeezing. */
+  @media (max-width: 640px) {
+    /* No iOS auto-zoom inside any popup: every popup input at 16px+ */
+    .fin-field input, .fin-field select { font-size:16px; min-height:48px; }
+    .address-field input { font-size:16px; }
+    .note-input { font-size:16px; }
+    #psms-text { font-size:16px; }
+    .psms-tpledit { font-size:16px; }
+    /* Template sheet fits the visible viewport */
+    .psms-tpledit-panel { max-height:92vh; max-height:92dvh; }
+    /* Add-lead city/state/zip row: stack instead of squeezing fixed 90/110px fields */
+    .modal-field-row { flex-direction:column; }
+    .modal-field-row .modal-field { flex:1 1 auto !important; }
+    /* Directors rows: name/email on their own line, buttons below */
+    .dir-row .dir-info { flex:1 1 100%; }
+  }
+
   /* ================= MOBILE (<=640px) header: compact 3-row layout =================
      Luca 2026-10-21: the mobile header was loose/messy (tall logo band, user chip
      floating alone, Directors icon orphaned on its own row, ~80px Dialer).
