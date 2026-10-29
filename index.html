@@ -724,6 +724,40 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
     .content { padding-top: 6px; }
   }
 
+  /* ===== LEAD BUBBLE AESTHETICS (2026-10-29) — looks only, no behavior change ===== */
+  /* Header block: name + address read as one unit. The address divider replaces
+     both the modal header rule and the detail's gold top border. */
+  #lead-modal-overlay .modal-header { border-bottom: none; padding-bottom: 6px; }
+  #lead-modal-overlay .modal-header h2 { font-size: 20px; }
+  #lead-modal-overlay #lead-modal-address { font-size: 13.5px !important; color: #cddaf0 !important; margin-bottom: 0 !important; padding-bottom: 14px; border-bottom: 1px solid #22385a; }
+  /* Detail sits flat in the card instead of a second dark box. */
+  #lead-modal-body .lead-detail { background: transparent; border-top: none; padding: 0; }
+  /* Stage track: even grid columns — no more 7 pills + one full-width pill. */
+  #lead-modal-body .status-track { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; margin-bottom: 18px; }
+  /* Quick action bar: one deliberate unit, phone prominent. */
+  #lead-modal-body .quick-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,.03); border: 1px solid #22385a; border-radius: 12px; padding: 10px 12px; margin-bottom: 18px; }
+  #lead-modal-body .quick-bar .call-link { flex: 1; font-size: 15px; padding: 10px 16px; background: rgba(212,168,67,.10); border-color: rgba(212,168,67,.45); border-radius: 10px; min-width: 190px; }
+  #lead-modal-body .quick-bar .quick-link-btn { width: 40px; height: 40px; border-radius: 10px; }
+  /* Section rhythm: gold labels with presence, consistent input padding. */
+  #lead-modal-body .section-label { font-size: 12px; color: #d4a843; margin: 20px 0 10px; }
+  #lead-modal-body .fin-grid { margin-bottom: 18px; }
+  #lead-modal-body .fin-field input, #lead-modal-body .fin-field select { padding: 10px 12px; border-radius: 8px; }
+  #lead-modal-body .address-field input { color: #e8ecf1; font-weight: 600; border-left: 1px solid #22385a; padding-left: 12px; }
+  #lead-modal-body .outcome-row select { padding: 10px 12px; border-radius: 8px; }
+  #lead-modal-body .note-input { padding: 12px; border-radius: 8px; }
+  /* Log-call form reads as one unit; Log Call stays the clear primary action. */
+  #lead-modal-body .logcall-form { background: rgba(255,255,255,.03); border: 1px solid #22385a; border-radius: 12px; padding: 14px; margin-bottom: 18px; }
+  #lead-modal-body .logcall-form .outcome-row { margin-bottom: 12px; }
+  #lead-modal-body .logcall-form .note-input { margin-bottom: 12px; }
+  #lead-modal-body .log-call-btn { padding: 10px 18px; font-size: 14px; border-radius: 8px; }
+  #lead-modal-body .delete-lead-btn { border-color: rgba(217,83,79,.45); color: #e07a77; }
+  @media (max-width: 640px) {
+    /* Keep the popup-audit mobile sheet chrome exactly as set. */
+    #lead-modal-overlay .modal-header { padding: 16px 18px; border-bottom: 1px solid #22385a; }
+    #lead-modal-body .quick-bar .quick-link-btn { width: 44px; height: 44px; }
+    #lead-modal-body .status-track { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+  }
+
 </style>
 </head>
 <body>
@@ -2474,7 +2508,7 @@ function renderLeadDetail(lead) {
         ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
       </div>` : ''}
 
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="quick-bar">
         <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="return pCallClick(event, '${lead.id}', '${digitsOnly(lead.phone)}', false)">📞 ${formatPhone(lead.phone)}</a>
         <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
           <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
@@ -2524,6 +2558,7 @@ function renderLeadDetail(lead) {
         </div>
       </div>
 
+      <div class="logcall-form">
       <div class="outcome-row">
         <select data-outcome-select="${lead.id}">
           ${OUTCOMES.map(o => `<option value="${o.id}" ${o.id===draft.outcome?'selected':''}>${o.label}</option>`).join('')}
@@ -2534,6 +2569,7 @@ function renderLeadDetail(lead) {
         <button class="log-call-btn" data-log-call="${lead.id}">+ Log Call</button>
         ${OFFER_STAGES.includes(lead.status) ? `<button class="offer-btn" data-submit-offer="${lead.id}">💰 Submit Offer</button>` : ''}
         <button class="delete-lead-btn" data-delete-lead="${lead.id}">Delete Lead</button>
+      </div>
       </div>
       ${notes.length ? `<div class="notes-list">${notes.slice().reverse().map(n => {
         const noteKey = lead.id + '::' + n.at;
