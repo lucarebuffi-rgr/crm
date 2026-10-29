@@ -729,15 +729,15 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
      both the modal header rule and the detail's gold top border. */
   #lead-modal-overlay .modal-header { border-bottom: none; padding-bottom: 6px; }
   #lead-modal-overlay .modal-header h2 { font-size: 20px; }
-  #lead-modal-overlay #lead-modal-address { font-size: 13.5px !important; color: #cddaf0 !important; margin-bottom: 0 !important; padding-bottom: 14px; border-bottom: 1px solid #22385a; }
+  #lead-modal-overlay #lead-modal-address { font-size: 15px !important; color: #e8ecf1 !important; font-weight: 600 !important; margin-bottom: 0 !important; padding-bottom: 14px; border-bottom: 1px solid #22385a; }
   /* Detail sits flat in the card instead of a second dark box. */
   #lead-modal-body .lead-detail { background: transparent; border-top: none; padding: 0; }
   /* Stage track: even grid columns — no more 7 pills + one full-width pill. */
   #lead-modal-body .status-track { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; margin-bottom: 18px; }
   /* Quick action bar: one deliberate unit, phone prominent. */
-  #lead-modal-body .quick-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,.03); border: 1px solid #22385a; border-radius: 12px; padding: 10px 12px; margin-bottom: 18px; }
-  #lead-modal-body .quick-bar .call-link { flex: 1; font-size: 15px; padding: 10px 16px; background: rgba(212,168,67,.10); border-color: rgba(212,168,67,.45); border-radius: 10px; min-width: 190px; }
-  #lead-modal-body .quick-bar .quick-link-btn { width: 40px; height: 40px; border-radius: 10px; }
+  #lead-modal-overlay .quick-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,.03); border: 1px solid #22385a; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+  #lead-modal-overlay .quick-bar .call-link { flex: 1; font-size: 15px; padding: 10px 16px; background: rgba(212,168,67,.10); border-color: rgba(212,168,67,.45); border-radius: 10px; min-width: 190px; }
+  #lead-modal-overlay .quick-bar .quick-link-btn { width: 40px; height: 40px; border-radius: 10px; }
   /* Section rhythm: gold labels with presence, consistent input padding. */
   #lead-modal-body .section-label { font-size: 12px; color: #d4a843; margin: 20px 0 10px; }
   #lead-modal-body .fin-grid { margin-bottom: 18px; }
@@ -754,7 +754,7 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
   @media (max-width: 640px) {
     /* Keep the popup-audit mobile sheet chrome exactly as set. */
     #lead-modal-overlay .modal-header { padding: 16px 18px; border-bottom: 1px solid #22385a; }
-    #lead-modal-body .quick-bar .quick-link-btn { width: 44px; height: 44px; }
+    #lead-modal-overlay .quick-bar .quick-link-btn { width: 44px; height: 44px; }
     #lead-modal-body .status-track { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
   }
 
@@ -972,6 +972,7 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
       <button class="modal-close-btn" onclick="closeLeadModal()">✕</button>
     </div>
     <div class="modal-body">
+      <div id="lead-modal-quickbar"></div>
       <div id="lead-modal-address" style="font-size:12px;color:#8a97a8;margin-bottom:12px;"></div>
       <div id="lead-modal-body"></div>
     </div>
@@ -1475,10 +1476,28 @@ function syncLeadModal() {
   if (!lead) {
     overlay.classList.remove('open');
     if (body) body.innerHTML = '';
+    const qb0 = document.getElementById('lead-modal-quickbar');
+    if (qb0) qb0.innerHTML = '';
     return;
   }
   const title = document.getElementById('lead-modal-title');
   if (title) title.textContent = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Lead';
+  const qb = document.getElementById('lead-modal-quickbar');
+  if (qb) qb.innerHTML = `<div class="quick-bar">
+        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="return pCallClick(event, '${lead.id}', '${digitsOnly(lead.phone)}', false)">📞 ${formatPhone(lead.phone)}</a>
+        <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
+          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/>
+            <path d="M8.3 14.6h6.9l-6.4 3.5h6.4" stroke="#0f6fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="quick-link-btn streetview-btn" href="https://www.google.com/maps/place/${encodeURIComponent(fullAddressStr(lead))}" target="_blank" rel="noopener" title="Google Street View">
+          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.6 6.6 11.7 7.1 12.16a.6.6 0 0 0 .8 0c.5-.46 7.1-6.56 7.1-12.16C19.5 5.36 16.14 2 12 2z" fill="#ffffff"/>
+            <circle cx="12" cy="9.5" r="3" fill="#e0483a"/>
+          </svg>
+        </a>
+      </div>`;
   const addr = document.getElementById('lead-modal-address');
   if (addr) addr.textContent = '📍 ' + fullAddressText(lead);
   if (body) body.innerHTML = renderLeadDetail(lead);
@@ -2507,22 +2526,6 @@ function renderLeadDetail(lead) {
       <div class="substage-track">
         ${SUBSTAGES[lead.status].map(ss => `<div class="substage-step ${lead.subStage===ss?'active':''}" data-substage-step="${lead.id}" data-substage-value="${escapeHtml(ss)}">${escapeHtml(ss)}</div>`).join('')}
       </div>` : ''}
-
-      <div class="quick-bar">
-        <a class="call-link mono" href="tel:${digitsOnly(lead.phone)}" data-call-link="${lead.id}" onclick="return pCallClick(event, '${lead.id}', '${digitsOnly(lead.phone)}', false)">📞 ${formatPhone(lead.phone)}</a>
-        <a class="quick-link-btn zillow-btn" href="https://www.zillow.com/homes/${encodeURIComponent(fullAddressStr(lead))}_rb/" target="_blank" rel="noopener" title="View on Zillow">
-          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2.5L2.5 10.5h2.7v10h5.3v-6.2h2.9v6.2h5.3v-10h2.7L12 2.5z" fill="#ffffff"/>
-            <path d="M8.3 14.6h6.9l-6.4 3.5h6.4" stroke="#0f6fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </a>
-        <a class="quick-link-btn streetview-btn" href="https://www.google.com/maps/place/${encodeURIComponent(fullAddressStr(lead))}" target="_blank" rel="noopener" title="Google Street View">
-          <svg viewBox="0 0 24 24" width="17" height="17" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.6 6.6 11.7 7.1 12.16a.6.6 0 0 0 .8 0c.5-.46 7.1-6.56 7.1-12.16C19.5 5.36 16.14 2 12 2z" fill="#ffffff"/>
-            <circle cx="12" cy="9.5" r="3" fill="#e0483a"/>
-          </svg>
-        </a>
-      </div>
 
       <div class="section-label">Property</div>
       <div class="fin-field address-field" style="margin-bottom:12px;">
