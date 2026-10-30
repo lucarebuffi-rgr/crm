@@ -814,6 +814,15 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
     .pdispo-btn { min-height: 52px; font-size: 15px; }
   }
 
+  /* ===== DEAL NUMBERS MONEY FIX (2026-10-30) — looks only ===== */
+  /* Root cause: the aesthetics block's #lead-modal-body .fin-field input padding
+     rule out-specificed .money-input input, shrinking padding-left from 20px to
+     12px — so the $ prefix overlapped the first digit (e.g. $269,000 read as
+     $69,000 with the 2 hidden under the $). This override restores real room
+     for the prefix and sizes it to match the digits. */
+  #lead-modal-body .money-input input { padding-left: 28px; }
+  #lead-modal-body .money-input .money-prefix { left: 10px; font-size: 14px; color: #9aa7ba; }
+
 </style>
 </head>
 <body>
