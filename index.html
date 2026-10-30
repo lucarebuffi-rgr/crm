@@ -758,6 +758,62 @@ if (location.hostname === 'lucarebuffi-rgr.github.io') {
     #lead-modal-body .status-track { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
   }
 
+  /* ===== PRODUCT POLISH (2026-10-29) — looks only, no behavior change ===== */
+  /* Patterns from research: HubSpot three-zone record + highlights panel (key
+     fields up top, sections as cards); Salesforce Lightning highlights panel +
+     actions grouped by type; Pipedrive scannable deal cards + attention colors;
+     Close one dominant call action; Refactoring UI one primary per view,
+     secondary = outline/soft-fill, destructive kept quiet, borders as last
+     separator, fixed elevation. Navy + gold identity unchanged.
+     MOBILE POLICY: same look on both widths except where a mobile need justifies
+     a difference. Desktop refinements live in min-width:641px only; nothing here
+     shrinks a tap target, drops an input below 16px, or restyles mobile sheets. */
+  /* Type + labels (same both widths; no size changes on mobile-governed text) */
+  #lead-modal-body .section-label { letter-spacing: .1em; text-transform: uppercase; }
+  .fin-field label { font-weight: 600; letter-spacing: .03em; }
+  .money-input input { font-variant-numeric: tabular-nums; }
+  .status-badge { letter-spacing: .05em; text-transform: uppercase; }
+  /* Focus ring parity with S&Z (gold ring on fields) */
+  input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(212,168,67,.65) !important; box-shadow: 0 0 0 3px rgba(212,168,67,.14); }
+  /* Buttons: one clear primary, quiet secondary, lift on hover (pointer only) */
+  .btn-gold, .log-call-btn { transition: transform .15s ease, box-shadow .15s ease; }
+  .agenda-btn { border-radius: 10px; }
+  /* Cards: smooth hover, stat cards read as clickable filters */
+  .lead-card { transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; margin-bottom: 12px; }
+  .stat-card { transition: border-color .15s ease; }
+  .stat-card.active { border-color: rgba(212,168,67,.5); }
+  /* List rows: name leads, address quiets to a second line */
+  .lead-name { font-size: 16px; font-weight: 800; }
+  .lead-address { font-weight: 500; color: #9aa7ba; }
+  /* Notes read as a timeline: gold rail, meta as a quiet label */
+  .note-entry { border-left-color: rgba(212,168,67,.45); padding-left: 12px; }
+  .note-meta { letter-spacing: .04em; text-transform: uppercase; }
+  /* Empty state: finished card, not a placeholder outline */
+  .empty-state { border-style: solid; background: rgba(255,255,255,.02); }
+  /* Dialer progress as a pill, not loose text */
+  .pdialer-progress { background: rgba(255,255,255,.05); border: 1px solid #22385a; border-radius: 999px; padding: 6px 12px; }
+  /* Modal chrome: deeper elevation, close-button affordance */
+  .modal-card { box-shadow: 0 32px 80px rgba(0,0,0,.6); }
+  .modal-close-btn { transition: border-color .15s ease, color .15s ease; }
+  @media (hover:hover) {
+    .btn-gold:hover, .log-call-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(212,168,67,.32); }
+    .btn-gold:active, .log-call-btn:active { transform: translateY(0); }
+    .btn-ghost:hover { border-color: rgba(212,168,67,.5); color: #e8c476; }
+    .lead-card:hover { transform: translateY(-1px); }
+    .stat-card:hover { border-color: rgba(212,168,67,.5); }
+    .modal-close-btn:hover { border-color: rgba(212,168,67,.5); color: #e8c476; }
+  }
+  @media (min-width:641px) {
+    .lead-row { padding: 16px 18px; }
+    #lead-modal-body .section-label { margin: 24px 0 12px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-value { font-size: 24px; }
+    .controls select, .search-wrap input, .date-filter-wrap input[type="date"] { min-height: 42px; border-radius: 10px; }
+    .pdial-call { font-size: 24px; padding: 18px; }
+    .pdialer-dispos { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .pdispo-btn { min-height: 52px; font-size: 15px; }
+  }
+
 </style>
 </head>
 <body>
