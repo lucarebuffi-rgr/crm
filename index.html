@@ -2522,10 +2522,10 @@ function renderStats() {
 
   const pipelineValue = leads
     .filter(l => l.status === 'under_contract')
-    .reduce((sum, l) => sum + parseMoney(l.leadValue), 0);
+    .reduce((sum, l) => sum + parseMoney(l.projectedProfit), 0);
   const closedValue = leads
     .filter(l => l.status === 'deal')
-    .reduce((sum, l) => sum + parseMoney(l.leadValue), 0);
+    .reduce((sum, l) => sum + parseMoney(l.projectedProfit), 0);
 
   let html = '';
   STATUSES.forEach(s => {
@@ -2609,21 +2609,26 @@ function renderLeadDetail(lead) {
       <div class="section-label">Deal Numbers</div>
       <div class="fin-grid">
         <div class="fin-field">
-          <label>Lead Value</label>
-          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.leadValue || '')}" data-field-input="${lead.id}" data-field-name="leadValue" /></div>
-        </div>
-        <div class="fin-field">
           <label>Asking Price</label>
           <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.askingPrice || '')}" data-field-input="${lead.id}" data-field-name="askingPrice" /></div>
         </div>
         <div class="fin-field">
-          <label>LAO</label>
-          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.lao || '')}" data-field-input="${lead.id}" data-field-name="lao" /></div>
-        </div>
-        <div class="fin-field">
-          <label>MAO</label>
+          <label>Cash MAO</label>
           <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.mao || '')}" data-field-input="${lead.id}" data-field-name="mao" /></div>
         </div>
+        <div class="fin-field">
+          <label>Novation MAO</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.novationMao || '')}" data-field-input="${lead.id}" data-field-name="novationMao" /></div>
+        </div>
+        ${lead.status === 'under_contract' ? `
+        <div class="fin-field">
+          <label>Contract Price</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.contractPrice || '')}" data-field-input="${lead.id}" data-field-name="contractPrice" /></div>
+        </div>
+        <div class="fin-field">
+          <label>Projected Profit</label>
+          <div class="money-input"><span class="money-prefix">$</span><input type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(lead.projectedProfit || '')}" data-field-input="${lead.id}" data-field-name="projectedProfit" /></div>
+        </div>` : ''}
       </div>
 
       <div class="logcall-form">
@@ -3679,7 +3684,7 @@ function sopHtml() {
         <li>Every submitted offer counts on the <strong>KPIs</strong> — offers submitted is a core metric for this CRM.</li>
         <li>The <strong>📊 KPIs</strong> icon in the header opens KPIs + the monthly offers report.</li>
       </ul>
-      <div class="sop-tip"><p>💡 Fill in <strong>LAO</strong> and <strong>MAO</strong> on the lead card before submitting, so the offer has context.</p></div>
+      <div class="sop-tip"><p>💡 Fill in <strong>Cash MAO</strong> and <strong>Novation MAO</strong> on the lead card before submitting, so the offer has context.</p></div>
     </div>
 
     <div class="sop-section">
